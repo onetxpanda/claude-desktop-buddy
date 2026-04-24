@@ -7,6 +7,7 @@
 #include "hal/beep.h"
 #include "hal/rtc.h"
 #include "hal/power.h"
+#include "hal/imu.h"
 
 TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
 
@@ -93,7 +94,7 @@ uint32_t promptArrivedMs = 0;
 // Face-down = Z-axis dominant and negative. Debounced so a toss doesn't count.
 static bool isFaceDown() {
   float ax, ay, az;
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  hal::imu::readAccel(ax, ay, az);
   return az < -0.7f && fabsf(ax) < 0.4f && fabsf(ay) < 0.4f;
 }
 
@@ -366,7 +367,7 @@ static void clockRefreshRtc() {
 
 static void clockUpdateOrient() {
   float ax, ay, az;
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  hal::imu::readAccel(ax, ay, az);
   uint8_t lock = settings().clockRot;
   if (lock == 1) { clockOrient = 0; return; }
   if (lock == 2) {
@@ -494,7 +495,7 @@ void triggerOneShot(PersonaState s, uint32_t durMs) {
 
 bool checkShake() {
   float ax, ay, az;
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  hal::imu::readAccel(ax, ay, az);
   float mag = sqrtf(ax*ax + ay*ay + az*az);
   float delta = fabsf(mag - accelBaseline);
   accelBaseline = accelBaseline * 0.95f + mag * 0.05f;
@@ -946,7 +947,7 @@ void drawHUD() {
 void setup() {
   M5.begin();
   M5.Lcd.setRotation(0);
-  M5.Imu.Init();
+  hal::imu::begin();
   hal::beep::begin();
   startBt();
   pinMode(LED_PIN, OUTPUT);
