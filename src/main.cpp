@@ -31,6 +31,7 @@ static void startBt() {
 #include "screens/info.h"
 #include "screens/hud.h"
 #include "screens/approval.h"
+#include "screens/clock.h"
 #include "stats.h"
 const int W = 135, H = 240;
 const int CX = W / 2;
@@ -351,7 +352,6 @@ void drawMenu() {
 //   3 = landscape, USB-side down (M5.Lcd rotation 3)
 static uint8_t clockOrient   = 0;
 static int8_t  orientFrames  = 0;
-static uint8_t paintedOrient = 0;
 // RTC and IMU share an I2C bus. Reading the RTC at 60fps starves the IMU
 // reads in clockUpdateOrient — orientation detection gets noisy. Cache the
 // time once per second; mood logic and drawClock both read from here.
@@ -409,78 +409,7 @@ static void clockUpdateOrient() {
 // Clock face: shown when charging on USB with nothing else going on.
 // Portrait paints the upper ~110px to the sprite; pet renders below.
 // Landscape draws direct to LCD with rotation — sprite stays untouched.
-static const char* const MON[] = {
-  "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
-};
-static const char* const DOW[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
-
-static uint8_t clockDow() { return _clkDt.weekday % 7; }
-static void drawClock() {
-  const Palette& p = characterPalette();
-  char hm[6]; snprintf(hm, sizeof(hm), "%02u:%02u", _clkTm.h, _clkTm.m);
-  char ss[4]; snprintf(ss, sizeof(ss), ":%02u", _clkTm.s);
-  uint8_t mi = (_clkDt.month >= 1 && _clkDt.month <= 12) ? _clkDt.month - 1 : 0;
-  char dl[8]; snprintf(dl, sizeof(dl), "%s %02u", MON[mi], _clkDt.day);
-
-  if (clockOrient == 0) {
-    paintedOrient = 0;
-    // Bottom half — buddy naturally lives at y=0..82, GIF peeks at top
-    // via peek mode. Clearing from 90 leaves both untouched.
-    spr.fillRect(0, 90, W, H - 90, p.bg);
-    spr.setTextDatum(MC_DATUM);
-    spr.setTextSize(4); spr.setTextColor(p.text, p.bg);    spr.drawString(hm, CX, 140);
-    spr.setTextSize(2); spr.setTextColor(p.textDim, p.bg); spr.drawString(ss, CX, 175);
-    spr.setTextSize(1);                                     spr.drawString(dl, CX, 200);
-    spr.setTextDatum(TL_DATUM);
-    return;
-  }
-
-  // Landscape: 240×135 direct-to-LCD. Full fill only on entry; after that
-  // text glyph bg cells repaint themselves and the pet box (small, ~90×50)
-  // gets a fillRect each pet tick — small enough not to tear.
-  hal::display::setRotation(clockOrient);
-  static uint8_t lastSec = 0xFF;
-  bool repaint = paintedOrient != clockOrient;
-  if (repaint) { hal::display::lcd().fillScreen(p.bg); paintedOrient = clockOrient; lastSec = 0xFF; }
-
-  // Seconds tick at 1Hz; redrawing 3 strings at 60fps is 180 SPI ops/sec
-  // for nothing. Gate on the second changing (or full repaint).
-  if (repaint || _clkTm.s != lastSec) {
-    lastSec = _clkTm.s;
-    char wdl[12]; snprintf(wdl, sizeof(wdl), "%s %s %02u", DOW[clockDow()], MON[mi], _clkDt.day);
-    char ssl[3]; snprintf(ssl, sizeof(ssl), "%02u", _clkTm.s);
-    hal::display::lcd().setTextDatum(MC_DATUM);
-    hal::display::lcd().setTextSize(3); hal::display::lcd().setTextColor(p.text, p.bg);    hal::display::lcd().drawString(hm, 170, 42);
-    hal::display::lcd().setTextSize(2); hal::display::lcd().setTextColor(p.textDim, p.bg); hal::display::lcd().drawString(ssl, 170, 72);
-                                                                                           hal::display::lcd().drawString(wdl, 170, 102);
-    hal::display::lcd().setTextDatum(TL_DATUM);
-    hal::display::lcd().setTextSize(1);
-  }
-
-  // Pet on left at 5 fps. Clear includes the overlay-particle zone above
-  // the body (y<30) — species draw Zzz/hearts there via BUDDY_Y_OVERLAY=6
-  // which doesn't go through _yb, so the box has to cover it.
-  static uint32_t lastPetTick = 0;
-  if (millis() - lastPetTick >= 200) {
-    lastPetTick = millis();
-    if (buddyMode) {
-      // ASCII glyphs don't self-clear; wipe the box each tick. Species
-      // hardcode BUDDY_X_CENTER=67 / BUDDY_Y_OVERLAY=6 for particles so
-      // keep portrait coords and just swap the surface — pet lands
-      // upper-left of landscape, which is where we want it anyway.
-      hal::display::lcd().fillRect(0, 0, 115, 90, p.bg);
-      buddyRenderTo(&hal::display::lcd(), activeState);
-    } else {
-      // Full-frame GIFs paint every pixel (transparent → pal.bg), so a
-      // per-tick clear just adds a visible black flash between wipe and
-      // last scanline. The entry fillScreen on paintedOrient change
-      // already covers the surround.
-      characterSetState(activeState);
-      characterRenderTo(&hal::display::lcd(), 57, 45);
-    }
-  }
-  hal::display::setRotation(0);
-}
+// Clock face drawing moved to screens/clock.cpp; see screen::clock::draw()
 
 PersonaState derive(const TamaState& s) {
   if (!s.connected)            return P_IDLE;
@@ -879,7 +808,7 @@ void loop() {
   clockRefreshRtc();   // 1Hz internal throttle; also caches _onUsb
   bool clocking = false;
   if (clocking) clockUpdateOrient();
-  else { clockOrient = 0; orientFrames = 0; paintedOrient = 0; }
+  else { clockOrient = 0; orientFrames = 0; }
   bool landscapeClock = clocking && clockOrient != 0;
 
   static bool wasClocking = false;
@@ -893,7 +822,7 @@ void loop() {
     wasLandscape = landscapeClock;
   }
   if (clocking) {
-    uint8_t dow = clockDow();
+    uint8_t dow = _clkDt.weekday % 7;
     bool weekend = (dow == 0 || dow == 6);
     bool friday  = (dow == 5);
 
@@ -943,10 +872,10 @@ void loop() {
     }
   }
   if (landscapeClock) {
-    drawClock();
+    screen::clock::draw(clockOrient, _clkTm, _clkDt);
   } else if (!napping && !screenOff) {
     if (blePasskey()) screen::passkey::draw();
-    else if (clocking) drawClock();
+    else if (clocking) screen::clock::draw(clockOrient, _clkTm, _clkDt);
     else if (displayMode == DISP_INFO) screen::info::draw();
     else if (displayMode == DISP_PET) drawPet();
     else if (settings().hud) {
