@@ -29,6 +29,7 @@ static void startBt() {
 #include "character.h"
 #include "screens/passkey.h"
 #include "screens/info.h"
+#include "screens/hud.h"
 #include "stats.h"
 const int W = 135, H = 240;
 const int CX = W / 2;
@@ -60,8 +61,6 @@ enum DisplayMode { DISP_NORMAL, DISP_PET, DISP_INFO, DISP_COUNT };
 uint8_t displayMode = DISP_NORMAL;
 uint8_t petPage = 0;
 const uint8_t PET_PAGES = 2;
-uint8_t msgScroll = 0;
-uint16_t lastLineGen = 0;
 char     lastPromptId[40] = "";
 uint32_t lastInteractMs = 0;
 bool     dimmed = false;
@@ -716,53 +715,6 @@ void drawPet() {
   else drawPetHowTo(p);
 }
 
-void drawHUD() {
-  if (tama.promptId[0]) { drawApproval(); return; }
-  const Palette& p = characterPalette();
-  const int SHOW = 3, LH = 8, WIDTH = 21;
-  const int AREA = SHOW * LH + 4;
-  spr.fillRect(0, H - AREA, W, AREA, p.bg);
-  spr.setTextSize(1);
-
-  if (tama.lineGen != lastLineGen) { msgScroll = 0; lastLineGen = tama.lineGen; wake(); }
-
-  if (tama.nLines == 0) {
-    spr.setTextColor(p.text, p.bg);
-    spr.setCursor(4, H - LH - 2);
-    spr.print(tama.msg);
-    return;
-  }
-
-  // Wrap all transcript lines into a flat display buffer. Track which
-  // transcript index each display row came from, so we can dim older ones.
-  static char disp[32][24];
-  static uint8_t srcOf[32];
-  uint8_t nDisp = 0;
-  for (uint8_t i = 0; i < tama.nLines && nDisp < 32; i++) {
-    uint8_t got = wrapInto(tama.lines[i], &disp[nDisp], 32 - nDisp, WIDTH);
-    for (uint8_t j = 0; j < got; j++) srcOf[nDisp + j] = i;
-    nDisp += got;
-  }
-
-  uint8_t maxBack = (nDisp > SHOW) ? (nDisp - SHOW) : 0;
-  if (msgScroll > maxBack) msgScroll = maxBack;
-
-  int end = (int)nDisp - msgScroll;
-  int start = end - SHOW; if (start < 0) start = 0;
-  uint8_t newest = tama.nLines - 1;
-  for (int i = 0; start + i < end; i++) {
-    uint8_t row = start + i;
-    bool fresh = (srcOf[row] == newest) && (msgScroll == 0);
-    spr.setTextColor(fresh ? p.text : p.textDim, p.bg);
-    spr.setCursor(4, H - AREA + 2 + i * LH);
-    spr.print(disp[row]);
-  }
-  if (msgScroll > 0) {
-    spr.setTextColor(p.body, p.bg);
-    spr.setCursor(W - 18, H - LH - 2);
-    spr.printf("-%u", msgScroll);
-  }
-}
 
 void setup() {
   hal::begin();
@@ -958,7 +910,7 @@ void loop() {
       applyDisplayMode();
     } else {
       beep(2400, 30);
-      msgScroll = (msgScroll >= 30) ? 0 : msgScroll + 1;
+      screen::hud::scrollMessage();
     }
   }
 
@@ -1041,7 +993,10 @@ void loop() {
     else if (clocking) drawClock();
     else if (displayMode == DISP_INFO) screen::info::draw();
     else if (displayMode == DISP_PET) drawPet();
-    else if (settings().hud) drawHUD();
+    else if (settings().hud) {
+      if (tama.promptId[0]) drawApproval();
+      else                  screen::hud::draw();
+    }
     if (resetOpen) drawReset();
     else if (settingsOpen) drawSettings();
     else if (menuOpen) drawMenu();
