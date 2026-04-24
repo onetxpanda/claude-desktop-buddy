@@ -769,70 +769,92 @@ static void drawApproval() {
 
 static void tinyHeart(int x, int y, bool filled, uint16_t col) {
   if (filled) {
-    spr.fillCircle(x - 2, y, 2, col);
-    spr.fillCircle(x + 2, y, 2, col);
-    spr.fillTriangle(x - 4, y + 1, x + 4, y + 1, x, y + 5, col);
+    spr.fillCircle(x - 4, y, 4, col);
+    spr.fillCircle(x + 4, y, 4, col);
+    spr.fillTriangle(x - 8, y + 2, x + 8, y + 2, x, y + 10, col);
   } else {
-    spr.drawCircle(x - 2, y, 2, col);
-    spr.drawCircle(x + 2, y, 2, col);
-    spr.drawLine(x - 4, y + 1, x, y + 5, col);
-    spr.drawLine(x + 4, y + 1, x, y + 5, col);
+    spr.drawCircle(x - 4, y, 4, col);
+    spr.drawCircle(x + 4, y, 4, col);
+    spr.drawLine(x - 8, y + 2, x, y + 10, col);
+    spr.drawLine(x + 8, y + 2, x, y + 10, col);
   }
 }
 
 static void drawPetStats(const Palette& p) {
   const int TOP = 70;
   spr.fillRect(0, TOP, W, H - TOP, p.bg);
-  spr.setTextSize(1);
-  int y = TOP + 16;
-
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(6, y - 2); spr.print("mood");
+  // Mood: 4 hearts centered in quarter-width cells
   uint8_t mood = statsMoodTier();
   uint16_t moodCol = (mood >= 3) ? RED : (mood >= 2) ? HOT : p.textDim;
-  for (int i = 0; i < 4; i++) tinyHeart(54 + i * 16, y + 2, i < mood, moodCol);
-
-  y += 20;
-  spr.setCursor(6, y - 2); spr.print("fed");
-  uint8_t fed = statsFedProgress();
-  for (int i = 0; i < 10; i++) {
-    int px = 38 + i * 9;
-    if (i < fed) spr.fillCircle(px, y + 1, 2, p.body);
-    else spr.drawCircle(px, y + 1, 2, p.textDim);
+  for (int i = 0; i < 4; i++) {
+    int cx = (W * (2 * i + 1)) / 8;
+    tinyHeart(cx, 86, i < mood, moodCol);
   }
 
-  y += 20;
-  spr.setCursor(6, y - 2); spr.print("energy");
+  // Fed: 10 dots centered in tenth-width cells
+  uint8_t fed = statsFedProgress();
+  for (int i = 0; i < 10; i++) {
+    int cx = (W * (2 * i + 1)) / 20;
+    if (i < fed) spr.fillCircle(cx, 108, 4, p.body);
+    else         spr.drawCircle(cx, 108, 4, p.textDim);
+  }
+
+  // Energy: 5 bars centered in fifth-width cells
   uint8_t en = statsEnergyTier();
   uint16_t enCol = (en >= 4) ? 0x07FF : (en >= 2) ? 0xFFE0 : HOT;
   for (int i = 0; i < 5; i++) {
-    int px = 54 + i * 13;
-    if (i < en) spr.fillRect(px, y - 2, 9, 6, enCol);
-    else spr.drawRect(px, y - 2, 9, 6, p.textDim);
+    int cx = (W * (2 * i + 1)) / 10;
+    if (i < en) spr.fillRect(cx - 7, 122, 15, 10, enCol);
+    else        spr.drawRect(cx - 7, 122, 15, 10, p.textDim);
   }
 
-  y += 24;
-  spr.fillRoundRect(6, y - 2, 42, 14, 3, p.body);
-  spr.setTextColor(p.bg, p.body);
-  spr.setCursor(11, y + 1); spr.printf("Lv %u", stats().level);
-
-  y += 20;
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(6, y);
-  spr.printf("approved %u", stats().approvals);
-  spr.setCursor(6, y + 10);
-  spr.printf("denied   %u", stats().denials);
-  uint32_t nap = stats().napSeconds;
-  spr.setCursor(6, y + 20);
-  spr.printf("napped   %luh%02lum", nap/3600, (nap/60)%60);
-  auto tokFmt = [&](const char* label, uint32_t v, int yPx) {
-    spr.setCursor(6, yPx);
-    if (v >= 1000000)   spr.printf("%s%lu.%luM", label, v/1000000, (v/100000)%10);
-    else if (v >= 1000) spr.printf("%s%lu.%luK", label, v/1000, (v/100)%10);
-    else                spr.printf("%s%lu", label, v);
+  int y = 136;
+  auto fmtTok = [](char* buf, size_t n, uint32_t v) {
+    if      (v < 1000)        snprintf(buf, n, "%lu", v);
+    else if (v < 100000)      snprintf(buf, n, "%lu.%luK", v/1000, (v/100)%10);
+    else if (v < 1000000)     snprintf(buf, n, "%luK", v/1000);
+    else if (v < 100000000)   snprintf(buf, n, "%lu.%luM", v/1000000, (v/100000)%10);
+    else if (v < 1000000000)  snprintf(buf, n, "%luM", v/1000000);
+    else                      snprintf(buf, n, "%lu.%luB", v/1000000000, (v/100000000)%10);
   };
-  tokFmt("tokens   ", stats().tokens, y + 30);
-  tokFmt("today    ", tama.tokensToday, y + 40);
+  char aprBuf[8], dnyBuf[8], tokBuf[12], tdyBuf[12], napBuf[8];
+  snprintf(aprBuf, sizeof(aprBuf), "%u", stats().approvals);
+  snprintf(dnyBuf, sizeof(dnyBuf), "%u", stats().denials);
+  fmtTok(tokBuf, sizeof(tokBuf), stats().tokens);
+  fmtTok(tdyBuf, sizeof(tdyBuf), tama.tokensToday);
+  uint32_t nap = stats().napSeconds;
+  if (nap >= 3600) snprintf(napBuf, sizeof(napBuf), "%luh", nap/3600);
+  else             snprintf(napBuf, sizeof(napBuf), "%lum", nap/60);
+
+  // Rows 0-1: two-column cells
+  const char* labels[2][2] = { {"APR","DNY"}, {"TDY","NAP"} };
+  const char* values[2][2] = {
+    { aprBuf, dnyBuf },
+    { tdyBuf, napBuf },
+  };
+  const int colCenterX[2] = { W / 4, (3 * W) / 4 };
+  for (int r = 0; r < 2; r++) {
+    int ry = y + r * 34;
+    for (int c = 0; c < 2; c++) {
+      spr.setTextSize(2);
+      spr.setTextColor(p.text, p.bg);
+      spr.setCursor(colCenterX[c] - (int)strlen(values[r][c]) * 6, ry);
+      spr.print(values[r][c]);
+      spr.setTextColor(p.textDim, p.bg);
+      spr.setCursor(colCenterX[c] - (int)strlen(labels[r][c]) * 6, ry + 18);
+      spr.print(labels[r][c]);
+    }
+  }
+
+  // Row 2: TOK spans the full width for large numbers
+  int ry = y + 2 * 34;
+  spr.setTextSize(2);
+  spr.setTextColor(p.text, p.bg);
+  spr.setCursor(W / 2 - (int)strlen(tokBuf) * 6, ry);
+  spr.print(tokBuf);
+  spr.setTextColor(p.textDim, p.bg);
+  spr.setCursor(W / 2 - 18, ry + 18);
+  spr.print("TOK");
 }
 
 static void drawPetHowTo(const Palette& p) {
@@ -844,8 +866,6 @@ static void drawPetHowTo(const Palette& p) {
     spr.setTextColor(c, p.bg); spr.setCursor(6, y); spr.print(s); y += 9;
   };
   auto gap = [&]() { y += 4; };
-
-  y += 12;  // room for the PET header drawn by drawPet()
 
   ln(p.body,    "MOOD");
   ln(p.textDim, " approve fast = up");
@@ -868,23 +888,8 @@ static void drawPetHowTo(const Palette& p) {
 
 void drawPet() {
   const Palette& p = characterPalette();
-  int y = 70;
-
   if (petPage == 0) drawPetStats(p);
   else drawPetHowTo(p);
-
-  // Header on top of whichever page drew — title left, counter right
-  spr.setTextSize(1);
-  spr.setTextColor(p.text, p.bg);
-  spr.setCursor(4, y + 2);
-  if (ownerName()[0]) {
-    spr.printf("%s's %s", ownerName(), petName());
-  } else {
-    spr.print(petName());
-  }
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(W - 28, y + 2);
-  spr.printf("%u/%u", petPage + 1, PET_PAGES);
 }
 
 void drawHUD() {
