@@ -8,6 +8,7 @@
 #include "hal/rtc.h"
 #include "hal/power.h"
 #include "hal/imu.h"
+#include "hal/buttons.h"
 
 TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
 
@@ -1052,17 +1053,17 @@ void loop() {
   // Button-press wake. Track which button woke the screen so its full
   // press cycle (including long-press) is swallowed — you don't want
   // BtnA-to-wake to also cycle displayMode or open the menu.
-  if (M5.BtnA.isPressed() || M5.BtnB.isPressed()) {
+  if (hal::buttons::pressedA() || hal::buttons::pressedB()) {
     if (screenOff) {
-      if (M5.BtnA.isPressed()) swallowBtnA = true;
-      if (M5.BtnB.isPressed()) swallowBtnB = true;
+      if (hal::buttons::pressedA()) swallowBtnA = true;
+      if (hal::buttons::pressedB()) swallowBtnB = true;
     }
     wake();
   }
 
   // AXP power button (left side): short-press toggles screen off.
   // Long-press (6s) still powers off the device via AXP hardware.
-  if (M5.Axp.GetBtnPress() == 0x02) {
+  if (hal::buttons::powerButtonPressed()) {
     if (screenOff) {
       wake();
     } else {
@@ -1071,7 +1072,7 @@ void loop() {
     }
   }
 
-  if (M5.BtnA.pressedFor(600) && !btnALong && !swallowBtnA) {
+  if (hal::buttons::heldA(600) && !btnALong && !swallowBtnA) {
     btnALong = true;
     beep(800, 60);
     if (resetOpen) { resetOpen = false; }
