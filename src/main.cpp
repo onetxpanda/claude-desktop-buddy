@@ -4,6 +4,7 @@
 #include "ble_bridge.h"
 #include "data.h"
 #include "buddy.h"
+#include "hal/beep.h"
 
 TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
 
@@ -109,7 +110,7 @@ static void wake() {
 bool     responseSent = false;
 
 static void beep(uint16_t freq, uint16_t dur) {
-  if (settings().sound) M5.Beep.tone(freq, dur);
+  if (settings().sound) hal::beep::tone(freq, dur);
 }
 
 static void sendCmd(const char* json) {
@@ -944,7 +945,7 @@ void setup() {
   M5.begin();
   M5.Lcd.setRotation(0);
   M5.Imu.Init();
-  M5.Beep.begin();
+  hal::beep::begin();
   startBt();
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);   // off
@@ -992,7 +993,7 @@ void setup() {
 
 void loop() {
   M5.update();
-  M5.Beep.update();
+  hal::beep::tick();
   t++;
   uint32_t now = millis();
 
