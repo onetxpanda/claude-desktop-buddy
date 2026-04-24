@@ -3,7 +3,17 @@
 - **Date**: 2026-04-24
 - **Scope**: Refactor only. No new device targets, no Core2 code, no build variants. Firmware still builds one `m5stickc-plus` env and behaves functionally identically.
 - **Acceptance criterion**: Functionally equivalent behavior on M5StickC Plus. Minor pixel shifts (1-2px) acceptable if they fall out naturally from extraction; no feature regressions.
-- **Out of scope (future Phase B)**: adding M5Stack Core2 as a second device, per-device layout variants, runtime device selection, automated test harness with mock HAL.
+- **Out of scope (future Phase B / deferred)**: adding M5Stack Core2 as a second device, per-device layout variants, runtime device selection, automated test harness with mock HAL.
+
+### Deferred: deep-sleep on nap with IMU wake
+
+Considered as part of Phase A scoping; deferred to a future phase to keep the refactor focused.
+
+- **Hardware feasibility (StickC Plus):** MPU6886 INT line is wired to GPIO 35 (RTC-capable, `RTC_GPIO_5`), so `esp_sleep_enable_ext0_wakeup(GPIO_NUM_35, 1)` can wake from deep sleep on motion. The MPU6886 itself supports a motion-detection interrupt via `INT_ENABLE` configuration.
+- **Scope estimate:** ~150-300 LoC. Configure IMU interrupt, manage BLE teardown before deep sleep (the bridge connection drops on entry; reconnect handled by Claude Desktop's auto-reconnect path), persist runtime state to NVS or RTC RAM, branch boot path on wake-from-sleep cause, restart character render cleanly.
+- **UX trade-offs:** deep sleep drops to ~10 µA but reboots take ~1-2 s and the BLE peer must re-pair the active connection. Light sleep keeps BLE alive but saves only ~30-40 mA; the bigger win is deep sleep.
+- **Why deferred:** unrelated to the refactor's separation goals; mixing it in muddies clean per-screen / per-HAL commits. The refactor exposes the right hooks (`hal::power::*`, `hal::imu::*`, the lifecycle in `main.cpp`) so the deep-sleep work becomes additive afterwards.
+- **Future task shape:** new spec + plan once Phase A lands. Likely Phase A.6 or its own letter.
 
 ## Why
 
