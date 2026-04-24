@@ -6,6 +6,7 @@
 #include "buddy.h"
 #include "hal/beep.h"
 #include "hal/rtc.h"
+#include "hal/power.h"
 
 TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
 
@@ -96,12 +97,12 @@ static bool isFaceDown() {
   return az < -0.7f && fabsf(ax) < 0.4f && fabsf(ay) < 0.4f;
 }
 
-static void applyBrightness() { M5.Axp.ScreenBreath(20 + brightLevel * 20); }
+static void applyBrightness() { hal::power::setBrightness(brightLevel); }
 
 static void wake() {
   lastInteractMs = millis();
   if (screenOff) {
-    M5.Axp.SetLDO2(true);
+    hal::power::setLcdPower(true);
     applyBrightness();
     screenOff = false;
     wakeTransitionUntil = millis() + 12000;
@@ -307,7 +308,7 @@ static void drawReset() {
 void menuConfirm() {
   switch (menuSel) {
     case 0: settingsOpen = true; menuOpen = false; settingsSel = 0; break;
-    case 1: M5.Axp.PowerOff(); break;
+    case 1: hal::power::powerOff(); break;
     case 2:
     case 3:
       menuOpen = false;
@@ -358,7 +359,7 @@ static bool            _onUsb       = false;
 static void clockRefreshRtc() {
   if (millis() - _clkLastRead < 1000) return;
   _clkLastRead = millis();
-  _onUsb = M5.Axp.GetVBusVoltage() > 4.0f;
+  _onUsb = hal::power::busVoltage() > 4.0f;
   hal::rtc::getTime(_clkTm);
   hal::rtc::getDate(_clkDt);
 }
@@ -595,9 +596,9 @@ void drawInfo() {
   } else if (infoPage == 3) {
     _infoHeader(p, y, "DEVICE", infoPage);
 
-    int vBat_mV = (int)(M5.Axp.GetBatVoltage() * 1000);
-    int iBat_mA = (int)M5.Axp.GetBatCurrent();
-    int vBus_mV = (int)(M5.Axp.GetVBusVoltage() * 1000);
+    int vBat_mV = (int)(hal::power::batVoltage() * 1000);
+    int iBat_mA = (int)hal::power::batCurrent();
+    int vBus_mV = (int)(hal::power::busVoltage() * 1000);
     int pct = (vBat_mV - 3200) / 10;   // (v-3.2)/(4.2-3.2)*100 = (v-3.2)*100 = (mv-3200)/10
     if (pct < 0) pct = 0; if (pct > 100) pct = 100;
     bool usb = vBus_mV > 4000;
@@ -629,7 +630,7 @@ void drawInfo() {
     ln("  heap     %uKB", ESP.getFreeHeap() / 1024);
     ln("  bright   %u/4", brightLevel);
     ln("  bt       %s", settings().bt ? (dataBtActive() ? "linked" : "on") : "off");
-    ln("  temp     %dC", (int)M5.Axp.GetTempInAXP192());
+    ln("  temp     %dC", (int)hal::power::axpTemp());
 
   } else if (infoPage == 4) {
     _infoHeader(p, y, "BLUETOOTH", infoPage);
@@ -1064,7 +1065,7 @@ void loop() {
     if (screenOff) {
       wake();
     } else {
-      M5.Axp.SetLDO2(false);
+      hal::power::setLcdPower(false);
       screenOff = true;
     }
   }
@@ -1245,7 +1246,7 @@ void loop() {
   if (!napping && faceDownFrames >= 15) {
     napping = true;
     napStartMs = now;
-    M5.Axp.ScreenBreath(8);
+    hal::power::setBrightness(0);
     dimmed = true;
   } else if (napping && faceDownFrames <= -8) {
     napping = false;
@@ -1259,7 +1260,7 @@ void loop() {
   // No auto-off on USB power — clock face wants to stay visible while charging.
   if (!screenOff && !inPrompt && !_onUsb
       && millis() - lastInteractMs > SCREEN_OFF_MS) {
-    M5.Axp.SetLDO2(false);
+    hal::power::setLcdPower(false);
     screenOff = true;
   }
 
