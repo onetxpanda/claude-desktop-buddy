@@ -1084,7 +1084,7 @@ void loop() {
     }
     Serial.println(menuOpen ? "menu open" : "menu close");
   }
-  if (M5.BtnA.wasReleased()) {
+  if (hal::buttons::wasReleasedA()) {
     if (!btnALong && !swallowBtnA) {
       if (inPrompt) {
         char cmd[96];
@@ -1116,7 +1116,7 @@ void loop() {
   }
 
   // BtnB: pet → heart
-  if (M5.BtnB.wasPressed()) {
+  if (hal::buttons::wasPressedB()) {
     if (swallowBtnB) { swallowBtnB = false; }
     else
     if (inPrompt) {
