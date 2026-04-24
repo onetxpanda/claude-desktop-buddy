@@ -27,6 +27,7 @@ static void startBt() {
 }
 
 #include "character.h"
+#include "screens/passkey.h"
 #include "stats.h"
 const int W = 135, H = 240;
 const int CX = W / 2;
@@ -521,20 +522,6 @@ static void _infoHeader(const Palette& p, int& y, const char* section, uint8_t p
   spr.setTextColor(p.body, p.bg);
   spr.setCursor(4, y); spr.print(section);
   y += 12;
-}
-
-void drawPasskey() {
-  const Palette& p = characterPalette();
-  spr.fillSprite(p.bg);
-  spr.setTextSize(1);
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(8, 56);  spr.print("BLUETOOTH PAIRING");
-  spr.setCursor(8, 184); spr.print("enter on desktop:");
-  spr.setTextSize(3);
-  spr.setTextColor(p.text, p.bg);
-  char b[8]; snprintf(b, sizeof(b), "%06lu", (unsigned long)blePasskey());
-  spr.setCursor((W - 18 * 6) / 2, 110);
-  spr.print(b);
 }
 
 void drawInfo() {
@@ -1221,7 +1208,7 @@ void loop() {
   if (landscapeClock) {
     drawClock();
   } else if (!napping && !screenOff) {
-    if (blePasskey()) drawPasskey();
+    if (blePasskey()) screen::passkey::draw();
     else if (clocking) drawClock();
     else if (displayMode == DISP_INFO) drawInfo();
     else if (displayMode == DISP_PET) drawPet();
