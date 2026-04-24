@@ -1,5 +1,6 @@
 #include "imu.h"
 #include <M5StickCPlus.h>
+#undef imu
 
 namespace hal { namespace imu {
 

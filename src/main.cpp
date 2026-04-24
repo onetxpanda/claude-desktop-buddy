@@ -1,4 +1,5 @@
 #include <M5StickCPlus.h>
+#undef imu
 #include <LittleFS.h>
 #include <stdarg.h>
 #include "ble_bridge.h"
@@ -10,6 +11,7 @@
 #include "hal/imu.h"
 #include "hal/buttons.h"
 #include "hal/display.h"
+#include "hal/hal.h"
 
 TFT_eSprite& spr = hal::display::sprite();
 
@@ -947,10 +949,7 @@ void drawHUD() {
 }
 
 void setup() {
-  M5.begin();
-  hal::display::begin();   // creates sprite + sets rotation
-  hal::imu::begin();
-  hal::beep::begin();
+  hal::begin();
   startBt();
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);   // off
@@ -996,8 +995,7 @@ void setup() {
 }
 
 void loop() {
-  M5.update();
-  hal::beep::tick();
+  hal::tick();
   t++;
   uint32_t now = millis();
 

@@ -1,14 +1,16 @@
 #include "hal.h"
 #include "display.h"
 #include "beep.h"
+#include "imu.h"
 #include <M5StickCPlus.h>
+#undef imu
 
 namespace hal {
 
 void begin() {
   M5.begin();
   display::begin();
-  M5.Imu.Init();
+  imu::begin();
   beep::begin();
 }
 
