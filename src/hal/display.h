@@ -1,5 +1,5 @@
 #pragma once
-#include <M5StickCPlus.h>
+#include <M5Display.h>
 
 namespace hal { namespace display {
   void begin();                    // no-op in A.1; owns sprite from A.2.6
