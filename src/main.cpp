@@ -1145,12 +1145,7 @@ void loop() {
   // by the bridge. Pet sleeps underneath. Exit restores Y via
   // applyDisplayMode() so the next mode-switch isn't visually offset.
   clockRefreshRtc();   // 1Hz internal throttle; also caches _onUsb
-  // Show the clock when nothing is happening — bridge heartbeat alone
-  // doesn't count as activity (it's the only way to get the RTC synced).
-  bool clocking = displayMode == DISP_NORMAL
-               && !menuOpen && !settingsOpen && !resetOpen && !inPrompt
-               && tama.sessionsRunning == 0 && tama.sessionsWaiting == 0
-               && dataRtcValid() && _onUsb;
+  bool clocking = false;
   if (clocking) clockUpdateOrient();
   else { clockOrient = 0; orientFrames = 0; paintedOrient = 0; }
   bool landscapeClock = clocking && clockOrient != 0;
