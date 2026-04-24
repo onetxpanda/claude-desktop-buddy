@@ -9,8 +9,9 @@
 #include "hal/power.h"
 #include "hal/imu.h"
 #include "hal/buttons.h"
+#include "hal/display.h"
 
-TFT_eSprite spr = TFT_eSprite(&M5.Lcd);
+TFT_eSprite& spr = hal::display::sprite();
 
 // Advertise as "Claude-XXXX" (last two BT MAC bytes) so multiple sticks
 // in one room are distinguishable in the desktop picker. Name persists in
@@ -437,10 +438,10 @@ static void drawClock() {
   // Landscape: 240×135 direct-to-LCD. Full fill only on entry; after that
   // text glyph bg cells repaint themselves and the pet box (small, ~90×50)
   // gets a fillRect each pet tick — small enough not to tear.
-  M5.Lcd.setRotation(clockOrient);
+  hal::display::setRotation(clockOrient);
   static uint8_t lastSec = 0xFF;
   bool repaint = paintedOrient != clockOrient;
-  if (repaint) { M5.Lcd.fillScreen(p.bg); paintedOrient = clockOrient; lastSec = 0xFF; }
+  if (repaint) { hal::display::lcd().fillScreen(p.bg); paintedOrient = clockOrient; lastSec = 0xFF; }
 
   // Seconds tick at 1Hz; redrawing 3 strings at 60fps is 180 SPI ops/sec
   // for nothing. Gate on the second changing (or full repaint).
@@ -448,12 +449,12 @@ static void drawClock() {
     lastSec = _clkTm.s;
     char wdl[12]; snprintf(wdl, sizeof(wdl), "%s %s %02u", DOW[clockDow()], MON[mi], _clkDt.day);
     char ssl[3]; snprintf(ssl, sizeof(ssl), "%02u", _clkTm.s);
-    M5.Lcd.setTextDatum(MC_DATUM);
-    M5.Lcd.setTextSize(3); M5.Lcd.setTextColor(p.text, p.bg);    M5.Lcd.drawString(hm, 170, 42);
-    M5.Lcd.setTextSize(2); M5.Lcd.setTextColor(p.textDim, p.bg); M5.Lcd.drawString(ssl, 170, 72);
-                                                                  M5.Lcd.drawString(wdl, 170, 102);
-    M5.Lcd.setTextDatum(TL_DATUM);
-    M5.Lcd.setTextSize(1);
+    hal::display::lcd().setTextDatum(MC_DATUM);
+    hal::display::lcd().setTextSize(3); hal::display::lcd().setTextColor(p.text, p.bg);    hal::display::lcd().drawString(hm, 170, 42);
+    hal::display::lcd().setTextSize(2); hal::display::lcd().setTextColor(p.textDim, p.bg); hal::display::lcd().drawString(ssl, 170, 72);
+                                                                                           hal::display::lcd().drawString(wdl, 170, 102);
+    hal::display::lcd().setTextDatum(TL_DATUM);
+    hal::display::lcd().setTextSize(1);
   }
 
   // Pet on left at 5 fps. Clear includes the overlay-particle zone above
@@ -467,18 +468,18 @@ static void drawClock() {
       // hardcode BUDDY_X_CENTER=67 / BUDDY_Y_OVERLAY=6 for particles so
       // keep portrait coords and just swap the surface — pet lands
       // upper-left of landscape, which is where we want it anyway.
-      M5.Lcd.fillRect(0, 0, 115, 90, p.bg);
-      buddyRenderTo(&M5.Lcd, activeState);
+      hal::display::lcd().fillRect(0, 0, 115, 90, p.bg);
+      buddyRenderTo(&hal::display::lcd(), activeState);
     } else {
       // Full-frame GIFs paint every pixel (transparent → pal.bg), so a
       // per-tick clear just adds a visible black flash between wipe and
       // last scanline. The entry fillScreen on paintedOrient change
       // already covers the surround.
       characterSetState(activeState);
-      characterRenderTo(&M5.Lcd, 57, 45);
+      characterRenderTo(&hal::display::lcd(), 57, 45);
     }
   }
-  M5.Lcd.setRotation(0);
+  hal::display::setRotation(0);
 }
 
 PersonaState derive(const TamaState& s) {
@@ -947,7 +948,7 @@ void drawHUD() {
 
 void setup() {
   M5.begin();
-  M5.Lcd.setRotation(0);
+  hal::display::begin();   // creates sprite + sets rotation
   hal::imu::begin();
   hal::beep::begin();
   startBt();
@@ -961,7 +962,6 @@ void setup() {
   buddyInit();
 
   // BLE stays always-on; s.bt is stored as a preference only.
-  spr.createSprite(W, H);
   characterInit(nullptr);  // scan /characters/ for whatever is installed
   gifAvailable = characterLoaded();
   // species NVS: 0..N-1 = ASCII species, 0xFF = use GIF (also the default,
@@ -988,7 +988,7 @@ void setup() {
       spr.drawString("a buddy appears", W/2, H/2 + 12);
     }
     spr.setTextDatum(TL_DATUM); spr.setTextSize(1);
-    spr.pushSprite(0, 0);
+    hal::display::push();
     delay(1800);
   }
 
@@ -1231,7 +1231,7 @@ void loop() {
     if (resetOpen) drawReset();
     else if (settingsOpen) drawSettings();
     else if (menuOpen) drawMenu();
-    spr.pushSprite(0, 0);
+    hal::display::push();
   }
 
   // Face-down nap: dim immediately, pause animations, accumulate sleep time.

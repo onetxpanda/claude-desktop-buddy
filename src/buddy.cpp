@@ -3,7 +3,7 @@
 #include <M5StickCPlus.h>
 #include <string.h>
 
-extern TFT_eSprite spr;
+extern TFT_eSprite& spr;
 
 // Mirrors PersonaState in main.cpp
 enum { B_SLEEP, B_IDLE, B_BUSY, B_ATTENTION, B_CELEBRATE, B_DIZZY, B_HEART };

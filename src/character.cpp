@@ -4,7 +4,7 @@
 #include <AnimatedGIF.h>
 #include <ArduinoJson.h>
 
-extern TFT_eSprite spr;
+extern TFT_eSprite& spr;
 
 static const char* STATE_NAMES[] = {
   "sleep", "idle", "busy", "attention", "celebrate", "dizzy", "heart"
