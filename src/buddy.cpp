@@ -10,12 +10,23 @@ extern M5Canvas& canvas;
 enum { B_SLEEP, B_IDLE, B_BUSY, B_ATTENTION, B_CELEBRATE, B_DIZZY, B_HEART };
 
 // ──────────────── shared geometry ────────────────
+// BUDDY_X_CENTER (67) is the StickC midline. Species files all position
+// particles relative to it, e.g. `BUDDY_X_CENTER - 36 + i * 12`. To keep
+// those formulas working on a wider Core2 canvas, the drawing helpers
+// (buddySetCursor, buddyPrintLine, buddyPrintSprite) translate by
+// xOffset() so the whole buddy "world" sits centered on whatever screen
+// it's drawn into. Species code stays scale- and screen-agnostic.
 const int BUDDY_X_CENTER = 67;
 int buddyCanvasW() { return hal::display::isLarge() ? 240 : 135; }
 const int BUDDY_Y_BASE   = 30;
 const int BUDDY_Y_OVERLAY = 6;
 const int BUDDY_CHAR_W   = 6;
 const int BUDDY_CHAR_H   = 8;
+
+// Shift so BUDDY_X_CENTER lands on the screen midline. Zero on StickC
+// (135/2 ≈ 67), 93 on Core2 (320/2 - 67) so the buddy sits in the
+// horizontal center instead of stuck to the left.
+static int xOffset() { return hal::display::width() / 2 - BUDDY_X_CENTER; }
 
 // ──────────────── shared colors ────────────────
 const uint16_t BUDDY_BG     = 0x0000;
@@ -52,7 +63,7 @@ void buddyPrintLine(const char* line, int yPx, uint16_t color, int xOff) {
     while (len && *line == ' ')       { line++; len--; }
   }
   int w = len * BUDDY_CHAR_W * _scale;
-  int x = BUDDY_X_CENTER - w / 2 + xOff * _scale;
+  int x = xOffset() + BUDDY_X_CENTER - w / 2 + xOff * _scale;
   _tgt->setTextColor(color, BUDDY_BG);
   _tgt->setCursor(x, yPx);
   for (int i = 0; i < len; i++) _tgt->print(line[i]);
@@ -67,9 +78,11 @@ void buddyPrintSprite(const char* const* lines, uint8_t nLines, int yOffset, uin
 }
 
 // Species pass 1× coords (relative to BUDDY_X_CENTER / BUDDY_Y_OVERLAY);
-// transform here so all 18 species files stay scale-agnostic.
+// transform here so all 18 species files stay scale-agnostic. xOffset()
+// applied here too — species pass StickC-world x; we land it on the
+// actual screen's midline.
 void buddySetCursor(int x, int y) {
-  _tgt->setCursor(BUDDY_X_CENTER + (x - BUDDY_X_CENTER) * _scale, y * _scale);
+  _tgt->setCursor(xOffset() + BUDDY_X_CENTER + (x - BUDDY_X_CENTER) * _scale, y * _scale);
 }
 void buddySetColor(uint16_t fg)   { _tgt->setTextColor(fg, BUDDY_BG); }
 void buddyPrint(const char* s)    { _tgt->setTextSize(_scale); _tgt->print(s); }

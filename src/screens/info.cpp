@@ -139,14 +139,18 @@ void draw() {
     bool full = usb && vBat_mV > 4100 && iBat_mA < 10;
 
     canvas.setTextColor(p.text, p.bg);
-    canvas.setTextSize(2 * S);
+    // Battery % deserves to be the page's loudest element on a 320px canvas:
+    // size 4 on Core2 (32px tall), size 2 on StickC. Status word stays at
+    // body size, baseline-aligned to the bottom of the big number.
+    const int bigSz = lg ? 4 : 2;
+    canvas.setTextSize(bigSz);
     canvas.setCursor(4, y);
     canvas.printf("%d%%", pct);
     canvas.setTextSize(S);
     canvas.setTextColor(full ? GREEN : (charging ? HOT : p.textDim), p.bg);
-    canvas.setCursor(64 * S, y + 4 * S);
+    canvas.setCursor(lg ? 100 : 64, y + (lg ? 24 : 4));
     canvas.print(full ? "full" : (charging ? "charging" : (usb ? "usb" : "battery")));
-    gap(20 * S);
+    gap(lg ? 36 : 20);
 
     canvas.setTextColor(p.textDim, p.bg);
     ln("  battery  %d.%02dV", vBat_mV/1000, (vBat_mV%1000)/10);
@@ -169,11 +173,12 @@ void draw() {
     bool linked = settings().bt && dataBtActive();
 
     canvas.setTextColor(linked ? GREEN : (settings().bt ? HOT : p.textDim), p.bg);
-    canvas.setTextSize(2 * S);
+    const int bigSz = lg ? 4 : 2;
+    canvas.setTextSize(bigSz);
     canvas.setCursor(4, y);
     canvas.print(linked ? "linked" : (settings().bt ? "discover" : "off"));
     canvas.setTextSize(S);
-    gap(20 * S);
+    gap(lg ? 36 : 20);
 
     canvas.setTextColor(p.textDim, p.bg);
     canvas.setTextColor(p.text, p.bg);
