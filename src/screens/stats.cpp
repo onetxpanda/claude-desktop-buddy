@@ -18,7 +18,7 @@ namespace screen { namespace petstats {
 static constexpr uint8_t PET_PAGES = 2;
 static uint8_t petPage = 0;
 
-uint8_t currentPage() { return petPage; }
+static uint8_t currentPage() { return petPage; }
 void    nextPage()    { petPage = (petPage + 1) % PET_PAGES; }
 
 bool handleButton(Btn b, BtnEvent e) {

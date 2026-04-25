@@ -547,8 +547,7 @@ void loop() {
       promptArrivedMs = millis();
       wake();
       beep(1200, 80);   // alert chirp
-      // Jump to the approval screen no matter what was open — drawApproval
-      // only runs from drawHUD which only runs in DISP_NORMAL.
+      // Jump to the approval screen no matter what was open.
       displayMode = DISP_NORMAL;
       menuOpen = settingsOpen = resetOpen = false;
       applyDisplayMode();
