@@ -35,11 +35,43 @@ static bool     _demoMode   = false;
 static uint8_t  _demoIdx    = 0;
 static uint32_t _demoNext   = 0;
 
-struct _Fake { const char* n; uint8_t t,r,w; bool c; uint32_t tok; };
+// Sample transcript snippets per scenario — only used in demo mode so the
+// HUD has something realistic to render. Lines fit ~21 chars (StickC HUD
+// width); Core2 wraps them at 13 chars per row.
+struct _Fake {
+  const char* n;
+  uint8_t  t, r, w;
+  bool     c;
+  uint32_t tok;
+  const char* const* lines;
+  uint8_t nLines;
+};
+static const char* const _LINES_IDLE[]      = { "Ready." };
+static const char* const _LINES_BUSY[]      = {
+  "Running tests",
+  "tests/auth.test.ts",
+  "12 passed, 0 failed",
+  "Building bundle",
+  "webpack 4.2MB > 1.1MB",
+};
+static const char* const _LINES_ATTENTION[] = {
+  "Edit src/api/users.ts",
+  "+ 12 lines, - 4 lines",
+  "needs permission",
+};
+static const char* const _LINES_COMPLETED[] = {
+  "Done!",
+  "feat: auth flow",
+  "5 files changed",
+  "+184 -42",
+  "127K tokens used",
+};
 static const _Fake _FAKES[] = {
-  {"asleep",0,0,0,false,0}, {"one idle",1,0,0,false,12000},
-  {"busy",4,3,0,false,89000}, {"attention",2,1,1,false,45000},
-  {"completed",1,0,0,true,142000},
+  {"asleep",     0,0,0, false, 0,      nullptr,           0},
+  {"one idle",   1,0,0, false, 12000,  _LINES_IDLE,       1},
+  {"busy",       4,3,0, false, 89000,  _LINES_BUSY,       5},
+  {"attention",  2,1,1, false, 45000,  _LINES_ATTENTION,  3},
+  {"completed",  1,0,0, true,  142000, _LINES_COMPLETED,  5},
 };
 
 inline void dataSetDemo(bool on) {
@@ -149,12 +181,21 @@ inline void dataPoll(TamaState* out) {
   uint32_t now = millis();
 
   if (_demoMode) {
-    if (now >= _demoNext) { _demoIdx = (_demoIdx + 1) % 5; _demoNext = now + 8000; }
+    bool advanced = false;
+    if (now >= _demoNext) { _demoIdx = (_demoIdx + 1) % 5; _demoNext = now + 8000; advanced = true; }
     const _Fake& s = _FAKES[_demoIdx];
     out->sessionsTotal=s.t; out->sessionsRunning=s.r; out->sessionsWaiting=s.w;
     out->recentlyCompleted=s.c; out->tokensToday=s.tok; out->lastUpdated=now;
     out->connected = true;
     snprintf(out->msg, sizeof(out->msg), "demo: %s", s.n);
+    // Copy sample transcript so the HUD renders multi-line content rather
+    // than just tama.msg. lineGen bumps on scenario change to reset scroll.
+    out->nLines = s.nLines;
+    for (uint8_t i = 0; i < s.nLines && i < 8; i++) {
+      strncpy(out->lines[i], s.lines[i], sizeof(out->lines[i]) - 1);
+      out->lines[i][sizeof(out->lines[i]) - 1] = 0;
+    }
+    if (advanced) out->lineGen++;
     return;
   }
 
