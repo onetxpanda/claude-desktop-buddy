@@ -32,7 +32,9 @@ bool handleButton(Btn b, BtnEvent e) {
 void draw() {
   const Palette& p = characterPalette();
   const bool lg = hal::display::isLarge();
-  const int itemH  = lg ? 22 : 14;
+  // itemH=20 keeps the 10-item panel under 240px tall on Core2:
+  //   16 + 10*20 + 14 = 230. itemH=22 (matching menu.cpp) overflowed.
+  const int itemH  = lg ? 20 : 14;
   const int valOff = lg ? 70 : 36;   // value column inset from panel right edge
   int mw = lg ? 240 : 118;
   int mh = 16 + N * itemH + MENU_HINT_H;
