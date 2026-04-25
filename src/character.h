@@ -5,7 +5,7 @@ struct Palette {
   uint16_t body, bg, text, textDim, ink;
 };
 
-// Call after M5.begin() and spr.createSprite(). Mounts LittleFS, reads
+// Call after M5.begin() and canvas.createSprite(). Mounts LittleFS, reads
 // /characters/<name>/manifest.json, parses colors, caches GIF paths.
 bool characterInit(const char* name);
 bool characterLoaded();
@@ -24,7 +24,7 @@ void characterClose();   // close GIF + clear loaded flag; FS stays mounted   //
 // header strip; off renders full-size centered in the upper home area.
 // Adaptive to actual canvas height — no padding required in source art.
 void characterSetPeek(bool peek);
-class TFT_eSPI;
-void characterRenderTo(TFT_eSPI* tgt, int cx, int cy);
+#include <M5Unified.h>
+void characterRenderTo(M5GFX* tgt, int cx, int cy);
 
 const Palette& characterPalette();

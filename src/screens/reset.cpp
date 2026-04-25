@@ -43,18 +43,18 @@ void draw() {
   const Palette& p = characterPalette();
   int mw = 118, mh = 16 + N * 14 + MENU_HINT_H;
   int mx = (hal::display::width() - mw) / 2, my = (hal::display::height() - mh) / 2;
-  spr.fillRoundRect(mx, my, mw, mh, 4, MENU_PANEL);
-  spr.drawRoundRect(mx, my, mw, mh, 4, RESET_HOT);
-  spr.setTextSize(1);
+  canvas.fillRoundRect(mx, my, mw, mh, 4, MENU_PANEL);
+  canvas.drawRoundRect(mx, my, mw, mh, 4, RESET_HOT);
+  canvas.setTextSize(1);
   for (int i = 0; i < N; i++) {
     bool sel = (i == selIdx);
-    spr.setTextColor(sel ? p.text : p.textDim, MENU_PANEL);
-    spr.setCursor(mx + 6, my + 8 + i * 14);
-    spr.print(sel ? "> " : "  ");
+    canvas.setTextColor(sel ? p.text : p.textDim, MENU_PANEL);
+    canvas.setCursor(mx + 6, my + 8 + i * 14);
+    canvas.print(sel ? "> " : "  ");
     bool armed = (i == confirmIdx) &&
                  (int32_t)(millis() - confirmUntilMs) < 0;
-    if (armed) spr.setTextColor(RESET_HOT, MENU_PANEL);
-    spr.print(armed ? "really?" : items[i]);
+    if (armed) canvas.setTextColor(RESET_HOT, MENU_PANEL);
+    canvas.print(armed ? "really?" : items[i]);
   }
   drawMenuHints(p, mx, mw, my + mh - 12);
 }

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-extern TFT_eSprite& spr;
+extern M5Canvas& canvas;
 extern TamaState tama;
 extern void applyDisplayMode();          // defined in main.cpp
 extern void beep(uint16_t freq, uint16_t dur);  // defined in main.cpp
@@ -33,14 +33,14 @@ bool handleButton(Btn b, BtnEvent e) {
 
 static void tinyHeart(int x, int y, bool filled, uint16_t col) {
   if (filled) {
-    spr.fillCircle(x - 4, y, 4, col);
-    spr.fillCircle(x + 4, y, 4, col);
-    spr.fillTriangle(x - 8, y + 2, x + 8, y + 2, x, y + 10, col);
+    canvas.fillCircle(x - 4, y, 4, col);
+    canvas.fillCircle(x + 4, y, 4, col);
+    canvas.fillTriangle(x - 8, y + 2, x + 8, y + 2, x, y + 10, col);
   } else {
-    spr.drawCircle(x - 4, y, 4, col);
-    spr.drawCircle(x + 4, y, 4, col);
-    spr.drawLine(x - 8, y + 2, x, y + 10, col);
-    spr.drawLine(x + 8, y + 2, x, y + 10, col);
+    canvas.drawCircle(x - 4, y, 4, col);
+    canvas.drawCircle(x + 4, y, 4, col);
+    canvas.drawLine(x - 8, y + 2, x, y + 10, col);
+    canvas.drawLine(x + 8, y + 2, x, y + 10, col);
   }
 }
 
@@ -48,7 +48,7 @@ static void drawPetStats(const Palette& p) {
   const int W = hal::display::width();
   const int H = hal::display::height();
   const int TOP = 70;
-  spr.fillRect(0, TOP, W, H - TOP, p.bg);
+  canvas.fillRect(0, TOP, W, H - TOP, p.bg);
   // Mood: 4 hearts centered in quarter-width cells
   uint8_t mood = statsMoodTier();
   uint16_t moodCol = (mood >= 3) ? RED : (mood >= 2) ? HOT : p.textDim;
@@ -61,8 +61,8 @@ static void drawPetStats(const Palette& p) {
   uint8_t fed = statsFedProgress();
   for (int i = 0; i < 10; i++) {
     int cx = (W * (2 * i + 1)) / 20;
-    if (i < fed) spr.fillCircle(cx, 108, 4, p.body);
-    else         spr.drawCircle(cx, 108, 4, p.textDim);
+    if (i < fed) canvas.fillCircle(cx, 108, 4, p.body);
+    else         canvas.drawCircle(cx, 108, 4, p.textDim);
   }
 
   // Energy: 5 bars centered in fifth-width cells
@@ -70,8 +70,8 @@ static void drawPetStats(const Palette& p) {
   uint16_t enCol = (en >= 4) ? 0x07FF : (en >= 2) ? 0xFFE0 : HOT;
   for (int i = 0; i < 5; i++) {
     int cx = (W * (2 * i + 1)) / 10;
-    if (i < en) spr.fillRect(cx - 7, 122, 15, 10, enCol);
-    else        spr.drawRect(cx - 7, 122, 15, 10, p.textDim);
+    if (i < en) canvas.fillRect(cx - 7, 122, 15, 10, enCol);
+    else        canvas.drawRect(cx - 7, 122, 15, 10, p.textDim);
   }
 
   int y = 136;
@@ -102,36 +102,36 @@ static void drawPetStats(const Palette& p) {
   for (int r = 0; r < 2; r++) {
     int ry = y + r * 34;
     for (int c = 0; c < 2; c++) {
-      spr.setTextSize(2);
-      spr.setTextColor(p.text, p.bg);
-      spr.setCursor(colCenterX[c] - (int)strlen(values[r][c]) * 6, ry);
-      spr.print(values[r][c]);
-      spr.setTextColor(p.textDim, p.bg);
-      spr.setCursor(colCenterX[c] - (int)strlen(labels[r][c]) * 6, ry + 18);
-      spr.print(labels[r][c]);
+      canvas.setTextSize(2);
+      canvas.setTextColor(p.text, p.bg);
+      canvas.setCursor(colCenterX[c] - (int)strlen(values[r][c]) * 6, ry);
+      canvas.print(values[r][c]);
+      canvas.setTextColor(p.textDim, p.bg);
+      canvas.setCursor(colCenterX[c] - (int)strlen(labels[r][c]) * 6, ry + 18);
+      canvas.print(labels[r][c]);
     }
   }
 
   // Row 2: TOK spans the full width for large numbers
   int ry = y + 2 * 34;
-  spr.setTextSize(2);
-  spr.setTextColor(p.text, p.bg);
-  spr.setCursor(W / 2 - (int)strlen(tokBuf) * 6, ry);
-  spr.print(tokBuf);
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(W / 2 - 18, ry + 18);
-  spr.print("TOK");
+  canvas.setTextSize(2);
+  canvas.setTextColor(p.text, p.bg);
+  canvas.setCursor(W / 2 - (int)strlen(tokBuf) * 6, ry);
+  canvas.print(tokBuf);
+  canvas.setTextColor(p.textDim, p.bg);
+  canvas.setCursor(W / 2 - 18, ry + 18);
+  canvas.print("TOK");
 }
 
 static void drawPetHowTo(const Palette& p) {
   const int W = hal::display::width();
   const int H = hal::display::height();
   const int TOP = 70;
-  spr.fillRect(0, TOP, W, H - TOP, p.bg);
-  spr.setTextSize(1);
+  canvas.fillRect(0, TOP, W, H - TOP, p.bg);
+  canvas.setTextSize(1);
   int y = TOP + 2;
   auto ln = [&](uint16_t c, const char* s) {
-    spr.setTextColor(c, p.bg); spr.setCursor(6, y); spr.print(s); y += 9;
+    canvas.setTextColor(c, p.bg); canvas.setCursor(6, y); canvas.print(s); y += 9;
   };
   auto gap = [&]() { y += 4; };
 

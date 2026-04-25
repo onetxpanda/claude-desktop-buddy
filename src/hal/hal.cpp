@@ -2,8 +2,7 @@
 #include "display.h"
 #include "beep.h"
 #include "imu.h"
-#include <M5StickCPlus.h>
-#undef imu
+#include <M5Unified.h>
 
 namespace hal {
 

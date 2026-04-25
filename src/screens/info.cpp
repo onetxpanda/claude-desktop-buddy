@@ -9,7 +9,7 @@
 #include <stdarg.h>
 
 // Declared in main.cpp
-extern TFT_eSprite& spr;
+extern M5Canvas& canvas;
 extern const char* stateNames[];
 extern TamaState tama;
 extern char btName[16];
@@ -26,30 +26,30 @@ static constexpr uint16_t HOT = 0xFA20;   // red-orange: warnings, impatience, d
 static uint8_t infoPage = 0;
 
 static void _infoHeader(const Palette& p, int& y, const char* section, uint8_t page) {
-  spr.setTextColor(p.text, p.bg);
-  spr.setCursor(4, y); spr.print("Info");
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(W - 28, y); spr.printf("%u/%u", page + 1, INFO_PAGES);
+  canvas.setTextColor(p.text, p.bg);
+  canvas.setCursor(4, y); canvas.print("Info");
+  canvas.setTextColor(p.textDim, p.bg);
+  canvas.setCursor(W - 28, y); canvas.printf("%u/%u", page + 1, INFO_PAGES);
   y += 12;
-  spr.setTextColor(p.body, p.bg);
-  spr.setCursor(4, y); spr.print(section);
+  canvas.setTextColor(p.body, p.bg);
+  canvas.setCursor(4, y); canvas.print(section);
   y += 12;
 }
 
 void draw() {
   const Palette& p = characterPalette();
   const int TOP = 70;
-  spr.fillRect(0, TOP, W, H - TOP, p.bg);
-  spr.setTextSize(1);
+  canvas.fillRect(0, TOP, W, H - TOP, p.bg);
+  canvas.setTextSize(1);
   int y = TOP + 2;
   auto ln = [&](const char* fmt, ...) {
     char b[32]; va_list a; va_start(a, fmt); vsnprintf(b, sizeof(b), fmt, a); va_end(a);
-    spr.setCursor(4, y); spr.print(b); y += 8;
+    canvas.setCursor(4, y); canvas.print(b); y += 8;
   };
 
   if (infoPage == 0) {
     _infoHeader(p, y, "ABOUT", infoPage);
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("I watch your Claude");
     ln("desktop sessions.");
     y += 6;
@@ -59,38 +59,38 @@ void draw() {
     ln("get impatient when");
     ln("approvals pile up.");
     y += 6;
-    spr.setTextColor(p.text, p.bg);
+    canvas.setTextColor(p.text, p.bg);
     ln("Press A on a prompt");
     ln("to approve from here.");
     y += 6;
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("18 species. Settings");
     ln("> ascii pet to cycle.");
 
   } else if (infoPage == 1) {
     _infoHeader(p, y, "BUTTONS", infoPage);
-    spr.setTextColor(p.text, p.bg);    ln("A   front");
-    spr.setTextColor(p.textDim, p.bg); ln("    next screen");
+    canvas.setTextColor(p.text, p.bg);    ln("A   front");
+    canvas.setTextColor(p.textDim, p.bg); ln("    next screen");
     ln("    approve prompt"); y += 4;
-    spr.setTextColor(p.text, p.bg);    ln("B   right side");
-    spr.setTextColor(p.textDim, p.bg); ln("    next page");
+    canvas.setTextColor(p.text, p.bg);    ln("B   right side");
+    canvas.setTextColor(p.textDim, p.bg); ln("    next page");
     ln("    deny prompt"); y += 4;
-    spr.setTextColor(p.text, p.bg);    ln("hold A");
-    spr.setTextColor(p.textDim, p.bg); ln("    menu"); y += 4;
-    spr.setTextColor(p.text, p.bg);    ln("Power  left side");
-    spr.setTextColor(p.textDim, p.bg); ln("    tap = screen off");
+    canvas.setTextColor(p.text, p.bg);    ln("hold A");
+    canvas.setTextColor(p.textDim, p.bg); ln("    menu"); y += 4;
+    canvas.setTextColor(p.text, p.bg);    ln("Power  left side");
+    canvas.setTextColor(p.textDim, p.bg); ln("    tap = screen off");
     ln("    hold 6s = off");
 
   } else if (infoPage == 2) {
     _infoHeader(p, y, "CLAUDE", infoPage);
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("  sessions  %u", tama.sessionsTotal);
     ln("  running   %u", tama.sessionsRunning);
     ln("  waiting   %u", tama.sessionsWaiting);
     y += 8;
-    spr.setTextColor(p.text, p.bg);
+    canvas.setTextColor(p.text, p.bg);
     ln("LINK");
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("  via       %s", dataScenarioName());
     ln("  ble       %s", !bleConnected() ? "-" : bleSecure() ? "encrypted" : "OPEN");
     uint32_t age = (millis() - tama.lastUpdated) / 1000;
@@ -109,48 +109,47 @@ void draw() {
     bool charging = usb && iBat_mA > 1;
     bool full = usb && vBat_mV > 4100 && iBat_mA < 10;
 
-    spr.setTextColor(p.text, p.bg);
-    spr.setTextSize(2);
-    spr.setCursor(4, y);
-    spr.printf("%d%%", pct);
-    spr.setTextSize(1);
-    spr.setTextColor(full ? GREEN : (charging ? HOT : p.textDim), p.bg);
-    spr.setCursor(60, y + 4);
-    spr.print(full ? "full" : (charging ? "charging" : (usb ? "usb" : "battery")));
+    canvas.setTextColor(p.text, p.bg);
+    canvas.setTextSize(2);
+    canvas.setCursor(4, y);
+    canvas.printf("%d%%", pct);
+    canvas.setTextSize(1);
+    canvas.setTextColor(full ? GREEN : (charging ? HOT : p.textDim), p.bg);
+    canvas.setCursor(60, y + 4);
+    canvas.print(full ? "full" : (charging ? "charging" : (usb ? "usb" : "battery")));
     y += 20;
 
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("  battery  %d.%02dV", vBat_mV/1000, (vBat_mV%1000)/10);
     ln("  current  %+dmA", iBat_mA);
     if (usb) ln("  usb in   %d.%02dV", vBus_mV/1000, (vBus_mV%1000)/10);
     y += 8;
 
-    spr.setTextColor(p.text, p.bg);
+    canvas.setTextColor(p.text, p.bg);
     ln("SYSTEM");
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     if (ownerName()[0]) ln("  owner    %s", ownerName());
     uint32_t up = millis() / 1000;
     ln("  uptime   %luh %02lum", up / 3600, (up / 60) % 60);
     ln("  heap     %uKB", ESP.getFreeHeap() / 1024);
     ln("  bright   %u/4", brightLevel);
     ln("  bt       %s", settings().bt ? (dataBtActive() ? "linked" : "on") : "off");
-    ln("  temp     %dC", (int)hal::power::axpTemp());
 
   } else if (infoPage == 4) {
     _infoHeader(p, y, "BLUETOOTH", infoPage);
     bool linked = settings().bt && dataBtActive();
 
-    spr.setTextColor(linked ? GREEN : (settings().bt ? HOT : p.textDim), p.bg);
-    spr.setTextSize(2);
-    spr.setCursor(4, y);
-    spr.print(linked ? "linked" : (settings().bt ? "discover" : "off"));
-    spr.setTextSize(1);
+    canvas.setTextColor(linked ? GREEN : (settings().bt ? HOT : p.textDim), p.bg);
+    canvas.setTextSize(2);
+    canvas.setCursor(4, y);
+    canvas.print(linked ? "linked" : (settings().bt ? "discover" : "off"));
+    canvas.setTextSize(1);
     y += 20;
 
-    spr.setTextColor(p.textDim, p.bg);
-    spr.setTextColor(p.text, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.text, p.bg);
     ln("  %s", btName);
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     uint8_t mac[6] = {0};
     esp_read_mac(mac, ESP_MAC_BT);
     ln("  %02X:%02X:%02X:%02X:%02X:%02X",
@@ -161,9 +160,9 @@ void draw() {
       uint32_t age = (millis() - tama.lastUpdated) / 1000;
       ln("  last msg  %lus", (unsigned long)age);
     } else if (settings().bt) {
-      spr.setTextColor(p.text, p.bg);
+      canvas.setTextColor(p.text, p.bg);
       ln("TO PAIR");
-      spr.setTextColor(p.textDim, p.bg);
+      canvas.setTextColor(p.textDim, p.bg);
       ln(" Open Claude desktop");
       ln(" > Developer");
       ln(" > Hardware Buddy");
@@ -173,20 +172,20 @@ void draw() {
 
   } else {
     _infoHeader(p, y, "CREDITS", infoPage);
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("made by");
     y += 4;
-    spr.setTextColor(p.text, p.bg);
+    canvas.setTextColor(p.text, p.bg);
     ln("Felix Rieseberg");
     y += 12;
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("source");
     y += 4;
-    spr.setTextColor(p.text, p.bg);
+    canvas.setTextColor(p.text, p.bg);
     ln("github.com/anthropics");
     ln("/claude-desktop-buddy");
     y += 12;
-    spr.setTextColor(p.textDim, p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
     ln("hardware");
     y += 4;
     ln("M5StickC Plus");

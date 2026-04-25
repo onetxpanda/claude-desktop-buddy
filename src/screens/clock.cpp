@@ -4,7 +4,7 @@
 #include "../buddy.h"
 #include <stdio.h>
 
-extern TFT_eSprite& spr;
+extern M5Canvas& canvas;
 extern bool buddyMode;
 extern uint8_t activeState;  // PersonaState enum defined in main.cpp
 
@@ -34,12 +34,12 @@ void draw(uint8_t orient,
     paintedOrient = 0;
     // Bottom half — buddy naturally lives at y=0..82, GIF peeks at top
     // via peek mode. Clearing from 90 leaves both untouched.
-    spr.fillRect(0, 90, hal::display::width(), hal::display::height() - 90, p.bg);
-    spr.setTextDatum(MC_DATUM);
-    spr.setTextSize(4); spr.setTextColor(p.text, p.bg);    spr.drawString(hm, hal::display::width() / 2, 140);
-    spr.setTextSize(2); spr.setTextColor(p.textDim, p.bg); spr.drawString(ss, hal::display::width() / 2, 175);
-    spr.setTextSize(1);                                     spr.drawString(dl, hal::display::width() / 2, 200);
-    spr.setTextDatum(TL_DATUM);
+    canvas.fillRect(0, 90, hal::display::width(), hal::display::height() - 90, p.bg);
+    canvas.setTextDatum(MC_DATUM);
+    canvas.setTextSize(4); canvas.setTextColor(p.text, p.bg);    canvas.drawString(hm, hal::display::width() / 2, 140);
+    canvas.setTextSize(2); canvas.setTextColor(p.textDim, p.bg); canvas.drawString(ss, hal::display::width() / 2, 175);
+    canvas.setTextSize(1);                                     canvas.drawString(dl, hal::display::width() / 2, 200);
+    canvas.setTextDatum(TL_DATUM);
     return;
   }
 

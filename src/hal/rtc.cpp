@@ -1,36 +1,38 @@
 #include "rtc.h"
-#include <M5StickCPlus.h>
+#include <M5Unified.h>
 
 namespace hal { namespace rtc {
 
 void getTime(Time& out) {
-  RTC_TimeTypeDef t;
-  M5.Rtc.GetTime(&t);
-  out.h = t.Hours; out.m = t.Minutes; out.s = t.Seconds;
+  auto dt = M5.Rtc.getDateTime();
+  out.h = dt.time.hours;
+  out.m = dt.time.minutes;
+  out.s = dt.time.seconds;
 }
 
 void getDate(Date& out) {
-  RTC_DateTypeDef d;
-  M5.Rtc.GetDate(&d);
-  out.weekday = d.WeekDay;
-  out.month   = d.Month;
-  out.day     = d.Date;
-  out.year    = d.Year;
+  auto dt = M5.Rtc.getDateTime();
+  out.weekday = dt.date.weekDay;
+  out.month   = dt.date.month;
+  out.day     = dt.date.date;
+  out.year    = dt.date.year;
 }
 
 void setTime(const Time& in) {
-  RTC_TimeTypeDef t{};
-  t.Hours = in.h; t.Minutes = in.m; t.Seconds = in.s;
-  M5.Rtc.SetTime(&t);
+  auto dt = M5.Rtc.getDateTime();
+  dt.time.hours   = in.h;
+  dt.time.minutes = in.m;
+  dt.time.seconds = in.s;
+  M5.Rtc.setDateTime(dt);
 }
 
 void setDate(const Date& in) {
-  RTC_DateTypeDef d{};
-  d.WeekDay = in.weekday;
-  d.Month   = in.month;
-  d.Date    = in.day;
-  d.Year    = in.year;
-  M5.Rtc.SetDate(&d);
+  auto dt = M5.Rtc.getDateTime();
+  dt.date.weekDay = in.weekday;
+  dt.date.month   = in.month;
+  dt.date.date    = in.day;
+  dt.date.year    = in.year;
+  M5.Rtc.setDateTime(dt);
 }
 
 }}

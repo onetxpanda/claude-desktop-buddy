@@ -1,5 +1,4 @@
-#include <M5StickCPlus.h>
-#undef imu
+#include <M5Unified.h>
 #include <LittleFS.h>
 #include <stdarg.h>
 #include "ble_bridge.h"
@@ -14,7 +13,7 @@
 #include "hal/hal.h"
 #include "input.h"
 
-TFT_eSprite& spr = hal::display::sprite();
+M5Canvas& canvas = hal::display::sprite();
 
 // Advertise as "Claude-XXXX" (last two BT MAC bytes) so multiple sticks
 // in one room are distinguishable in the desktop picker. Name persists in
@@ -146,7 +145,7 @@ void applyDisplayMode() {
   // own regions when they run, but when you switch FROM info/pet TO normal,
   // those functions stop running and their stale pixels stay behind. Full
   // clear is cheap and guarantees no leftovers between modes.
-  spr.fillSprite(0x0000);
+  canvas.fillSprite(0x0000);
   characterInvalidate();  // redraws character on next tick (text mode path)
 }
 
@@ -330,8 +329,8 @@ static void pollInput(Emit emit) {
 // on its side. Signed counter for hysteresis on both transitions — same
 // pattern as face-down nap.
 //   0 = portrait (sprite path, pet sleeps underneath)
-//   1 = landscape, BtnA-side down (M5.Lcd rotation 1)
-//   3 = landscape, USB-side down (M5.Lcd rotation 3)
+//   1 = landscape, BtnA-side down (M5.Display rotation 1)
+//   3 = landscape, USB-side down (M5.Display rotation 3)
 static uint8_t clockOrient   = 0;
 static int8_t  orientFrames  = 0;
 // RTC and IMU share an I2C bus. Reading the RTC at 60fps starves the IMU
@@ -482,22 +481,22 @@ void setup() {
 
   {
     const Palette& p = characterPalette();
-    spr.fillSprite(p.bg);
-    spr.setTextDatum(MC_DATUM);
-    spr.setTextSize(2);
+    canvas.fillSprite(p.bg);
+    canvas.setTextDatum(MC_DATUM);
+    canvas.setTextSize(2);
     if (ownerName()[0]) {
       char line[40];
       snprintf(line, sizeof(line), "%s's", ownerName());
-      spr.setTextColor(p.text, p.bg);   spr.drawString(line, W/2, H/2 - 12);
-      spr.setTextColor(p.body, p.bg);   spr.drawString(petName(), W/2, H/2 + 12);
+      canvas.setTextColor(p.text, p.bg);   canvas.drawString(line, W/2, H/2 - 12);
+      canvas.setTextColor(p.body, p.bg);   canvas.drawString(petName(), W/2, H/2 + 12);
     } else {
       // First boot, no owner pushed yet — say hi.
-      spr.setTextColor(p.body, p.bg);   spr.drawString("Hello!", W/2, H/2 - 12);
-      spr.setTextSize(1);
-      spr.setTextColor(p.textDim, p.bg);
-      spr.drawString("a buddy appears", W/2, H/2 + 12);
+      canvas.setTextColor(p.body, p.bg);   canvas.drawString("Hello!", W/2, H/2 - 12);
+      canvas.setTextSize(1);
+      canvas.setTextColor(p.textDim, p.bg);
+      canvas.drawString("a buddy appears", W/2, H/2 + 12);
     }
-    spr.setTextDatum(TL_DATUM); spr.setTextSize(1);
+    canvas.setTextDatum(TL_DATUM); canvas.setTextSize(1);
     hal::display::push();
     delay(1800);
   }
@@ -676,24 +675,24 @@ void loop() {
     characterTick();
   } else {
     const Palette& p = characterPalette();
-    spr.fillSprite(p.bg);
-    spr.setTextColor(p.textDim, p.bg);
-    spr.setTextSize(1);
+    canvas.fillSprite(p.bg);
+    canvas.setTextColor(p.textDim, p.bg);
+    canvas.setTextSize(1);
     if (xferActive()) {
       uint32_t done = xferProgress(), total = xferTotal();
-      spr.setCursor(8, 90);
-      spr.print("installing");
-      spr.setCursor(8, 102);
-      spr.printf("%luK / %luK", done/1024, total/1024);
+      canvas.setCursor(8, 90);
+      canvas.print("installing");
+      canvas.setCursor(8, 102);
+      canvas.printf("%luK / %luK", done/1024, total/1024);
       int barW = W - 16;
-      spr.drawRect(8, 116, barW, 8, p.textDim);
+      canvas.drawRect(8, 116, barW, 8, p.textDim);
       if (total > 0) {
         int fill = (int)((uint64_t)barW * done / total);
-        if (fill > 1) spr.fillRect(9, 117, fill - 1, 6, p.body);
+        if (fill > 1) canvas.fillRect(9, 117, fill - 1, 6, p.body);
       }
     } else {
-      spr.setCursor(8, 100);
-      spr.print("no character loaded");
+      canvas.setCursor(8, 100);
+      canvas.print("no character loaded");
     }
   }
   if (landscapeClock) {

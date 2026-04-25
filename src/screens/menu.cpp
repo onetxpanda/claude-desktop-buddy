@@ -26,16 +26,16 @@ void draw() {
   const Palette& p = characterPalette();
   int mw = 118, mh = 16 + N * 14 + MENU_HINT_H;
   int mx = (hal::display::width() - mw) / 2, my = (hal::display::height() - mh) / 2;
-  spr.fillRoundRect(mx, my, mw, mh, 4, MENU_PANEL);
-  spr.drawRoundRect(mx, my, mw, mh, 4, p.textDim);
-  spr.setTextSize(1);
+  canvas.fillRoundRect(mx, my, mw, mh, 4, MENU_PANEL);
+  canvas.drawRoundRect(mx, my, mw, mh, 4, p.textDim);
+  canvas.setTextSize(1);
   for (int i = 0; i < N; i++) {
     bool sel = (i == selIdx);
-    spr.setTextColor(sel ? p.text : p.textDim, MENU_PANEL);
-    spr.setCursor(mx + 6, my + 8 + i * 14);
-    spr.print(sel ? "> " : "  ");
-    spr.print(items[i]);
-    if (i == 4) spr.print(dataDemo() ? "  on" : "  off");
+    canvas.setTextColor(sel ? p.text : p.textDim, MENU_PANEL);
+    canvas.setCursor(mx + 6, my + 8 + i * 14);
+    canvas.print(sel ? "> " : "  ");
+    canvas.print(items[i]);
+    if (i == 4) canvas.print(dataDemo() ? "  on" : "  off");
   }
   drawMenuHints(p, mx, mw, my + mh - 12);
 }

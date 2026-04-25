@@ -1,13 +1,15 @@
 #include "imu.h"
-#include <M5StickCPlus.h>
-#undef imu
+#include <M5Unified.h>
 
 namespace hal { namespace imu {
 
-void begin() { M5.Imu.Init(); }
+void begin() { M5.Imu.begin(); }
 
 void readAccel(float& ax, float& ay, float& az) {
-  M5.Imu.getAccelData(&ax, &ay, &az);
+  auto d = M5.Imu.getImuData();
+  ax = d.accel.x;
+  ay = d.accel.y;
+  az = d.accel.z;
 }
 
 }}

@@ -1,15 +1,21 @@
 #include "power.h"
-#include <M5StickCPlus.h>
+#include <M5Unified.h>
 
 namespace hal { namespace power {
 
-float busVoltage() { return M5.Axp.GetVBusVoltage(); }
-float batVoltage() { return M5.Axp.GetBatVoltage(); }
-float batCurrent() { return M5.Axp.GetBatCurrent(); }
-float axpTemp()    { return M5.Axp.GetTempInAXP192(); }
+float busVoltage() { return M5.Power.getVBUSVoltage() / 1000.0f; }
+float batVoltage() { return M5.Power.getBatteryVoltage() / 1000.0f; }
+float batCurrent() { return M5.Power.getBatteryCurrent(); }
 
-void setBrightness(uint8_t level) { M5.Axp.ScreenBreath(20 + level * 20); }
-void setLcdPower(bool on)         { M5.Axp.SetLDO2(on); }
-void powerOff()                   { M5.Axp.PowerOff(); }
+void setBrightness(uint8_t level) {
+  M5.Display.setBrightness(20 + level * 20);
+}
+
+void setLcdPower(bool on) {
+  if (on) M5.Display.wakeup();
+  else    M5.Display.sleep();
+}
+
+void powerOff() { M5.Power.powerOff(); }
 
 }}

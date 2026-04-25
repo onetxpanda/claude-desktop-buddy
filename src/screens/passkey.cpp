@@ -5,23 +5,23 @@
 #include <stdio.h>
 
 // Declared in main.cpp
-extern TFT_eSprite& spr;
+extern M5Canvas& canvas;
 
 namespace screen { namespace passkey {
 
 void draw() {
   static constexpr int W = 135;  // screen width
   const Palette& p = characterPalette();
-  spr.fillSprite(p.bg);
-  spr.setTextSize(1);
-  spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(8, 56);  spr.print("BLUETOOTH PAIRING");
-  spr.setCursor(8, 184); spr.print("enter on desktop:");
-  spr.setTextSize(3);
-  spr.setTextColor(p.text, p.bg);
+  canvas.fillSprite(p.bg);
+  canvas.setTextSize(1);
+  canvas.setTextColor(p.textDim, p.bg);
+  canvas.setCursor(8, 56);  canvas.print("BLUETOOTH PAIRING");
+  canvas.setCursor(8, 184); canvas.print("enter on desktop:");
+  canvas.setTextSize(3);
+  canvas.setTextColor(p.text, p.bg);
   char b[8]; snprintf(b, sizeof(b), "%06lu", (unsigned long)blePasskey());
-  spr.setCursor((W - 18 * 6) / 2, 110);
-  spr.print(b);
+  canvas.setCursor((W - 18 * 6) / 2, 110);
+  canvas.print(b);
 }
 
 }}
