@@ -3,6 +3,8 @@
 #include "../data.h"
 #include <stdio.h>
 
+extern void beep(uint16_t freq, uint16_t dur);
+
 namespace screen { namespace menu {
 
 static const char* items[] = { "settings", "turn off", "help", "about", "demo", "close" };
@@ -12,6 +14,13 @@ static uint8_t selIdx = 0;
 uint8_t selected()             { return selIdx; }
 void    setSelected(uint8_t i) { selIdx = i % N; }
 uint8_t itemCount()            { return N; }
+
+bool handleButton(Btn b, BtnEvent e) {
+  // A-tap: advance selection (navigation only; activation falls through to main.cpp)
+  if (b == Btn::A && e == BtnEvent::Tap) { beep(1800, 30); selIdx = (selIdx + 1) % N; return true; }
+  // B-tap: confirm/activate — let main.cpp handle via menuConfirm()
+  return false;
+}
 
 void draw() {
   const Palette& p = characterPalette();

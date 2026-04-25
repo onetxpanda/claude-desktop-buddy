@@ -2,6 +2,8 @@
 #include "menu_hints.h"
 #include <Arduino.h>
 
+extern void beep(uint16_t freq, uint16_t dur);
+
 static const uint16_t RESET_HOT = 0xFA20;   // red-orange: warnings, impatience, deny
 
 namespace screen { namespace reset {
@@ -15,6 +17,19 @@ static uint32_t confirmUntilMs = 0;
 uint8_t  selected()             { return selIdx; }
 void     setSelected(uint8_t i) { selIdx = i % N; }
 uint8_t  itemCount()            { return N; }
+
+bool handleButton(Btn b, BtnEvent e) {
+  // A-tap: advance selection; B-tap: execute reset action (falls through to main.cpp)
+  if (b == Btn::A && e == BtnEvent::Tap) {
+    beep(1800, 30);
+    selIdx = (selIdx + 1) % N;
+    // Scrolling away clears the arm
+    confirmIdx = 0xFF;
+    confirmUntilMs = 0;
+    return true;
+  }
+  return false;
+}
 
 uint8_t  lastConfirmIdx()       { return confirmIdx; }
 uint32_t confirmDeadline()      { return confirmUntilMs; }

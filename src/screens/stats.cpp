@@ -8,6 +8,8 @@
 
 extern TFT_eSprite& spr;
 extern TamaState tama;
+extern void applyDisplayMode();          // defined in main.cpp
+extern void beep(uint16_t freq, uint16_t dur);  // defined in main.cpp
 
 static constexpr uint16_t HOT = 0xFA20;   // red-orange: warnings, impatience, deny
 
@@ -18,6 +20,16 @@ static uint8_t petPage = 0;
 
 uint8_t currentPage() { return petPage; }
 void    nextPage()    { petPage = (petPage + 1) % PET_PAGES; }
+
+bool handleButton(Btn b, BtnEvent e) {
+  if (b == Btn::B && e == BtnEvent::Tap) {
+    beep(2400, 30);
+    nextPage();
+    applyDisplayMode();
+    return true;
+  }
+  return false;
+}
 
 static void tinyHeart(int x, int y, bool filled, uint16_t col) {
   if (filled) {

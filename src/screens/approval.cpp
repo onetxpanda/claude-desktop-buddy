@@ -11,6 +11,10 @@ extern TamaState tama;
 extern uint32_t promptArrivedMs;
 extern bool responseSent;
 
+// Wrappers provided by main.cpp (avoid pulling in stats.h which is single-TU)
+extern void approvalDoApprove();
+extern void approvalDoDeny();
+
 // Colors used across multiple UI surfaces
 static const uint16_t HOT   = 0xFA20;   // red-orange: warnings, impatience, deny
 
@@ -59,6 +63,13 @@ void draw() {
     spr.setCursor(hal::display::width() - 48, hal::display::height() - 12);
     spr.print("B: deny");
   }
+}
+
+bool handleButton(Btn b, BtnEvent e) {
+  if (e != BtnEvent::Tap) return false;
+  if (b == Btn::A) { approvalDoApprove(); return true; }
+  if (b == Btn::B) { approvalDoDeny();    return true; }
+  return false;
 }
 
 }}

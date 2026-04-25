@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "../input.h"
 
 namespace screen { namespace reset {
   void     draw();
@@ -9,4 +10,5 @@ namespace screen { namespace reset {
   uint8_t  lastConfirmIdx();
   void     setLastConfirm(uint8_t idx, uint32_t deadlineMs);
   uint32_t confirmDeadline();
+  bool     handleButton(Btn b, BtnEvent e);
 }}

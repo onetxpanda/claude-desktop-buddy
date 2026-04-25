@@ -12,6 +12,7 @@
 #include "hal/buttons.h"
 #include "hal/display.h"
 #include "hal/hal.h"
+#include "input.h"
 
 TFT_eSprite& spr = hal::display::sprite();
 
@@ -60,7 +61,14 @@ unsigned long t = 0;
 // Menu
 bool    menuOpen    = false;
 uint8_t brightLevel = 4;           // 0..4 → ScreenBreath 20..100
-bool    btnALong    = false;
+
+// Input event synthesizer state
+struct BtnSynth {
+  bool     prevA       = false;
+  bool     prevB       = false;
+  bool     aLongFired  = false;
+};
+static BtnSynth bs;
 
 enum DisplayMode { DISP_NORMAL, DISP_PET, DISP_INFO, DISP_COUNT };
 uint8_t displayMode = DISP_NORMAL;
@@ -119,11 +127,11 @@ static void wake() {
 }
 bool     responseSent = false;
 
-static void beep(uint16_t freq, uint16_t dur) {
+void beep(uint16_t freq, uint16_t dur) {
   if (settings().sound) hal::beep::tone(freq, dur);
 }
 
-static void sendCmd(const char* json) {
+void sendCmd(const char* json) {
   Serial.println(json);
   size_t n = strlen(json);
   bleWrite((const uint8_t*)json, n);
@@ -242,6 +250,79 @@ void menuConfirm() {
     }
     case 4: dataSetDemo(!dataDemo()); break;
     case 5: menuOpen = false; characterInvalidate(); break;
+  }
+}
+
+// Forward declarations for functions defined later in this file
+void triggerOneShot(PersonaState s, uint32_t durMs);
+
+// Approval wrappers — called from screen::approval::handleButton.
+// Keep the stats/beep/triggerOneShot logic here since stats.h is single-TU.
+void approvalDoApprove() {
+  if (responseSent) return;
+  char cmd[96];
+  snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"once\"}", tama.promptId);
+  sendCmd(cmd);
+  responseSent = true;
+  uint32_t tookS = (millis() - promptArrivedMs) / 1000;
+  statsOnApproval(tookS);
+  beep(2400, 60);
+  if (tookS < 5) triggerOneShot(P_HEART, 2000);
+}
+
+void approvalDoDeny() {
+  if (responseSent) return;
+  char cmd[96];
+  snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"deny\"}", tama.promptId);
+  sendCmd(cmd);
+  responseSent = true;
+  statsOnDenial();
+  beep(600, 60);
+}
+
+// Input event synthesizer — called once per frame.
+// Converts raw hal::buttons polls into (Button, ButtonEvent) calls on `emit`.
+// Preserves tap-vs-long-press timing and first-press-on-wake swallow behavior.
+template <typename Emit>
+static void pollInput(Emit emit) {
+  // ---- A button ----
+  bool aNow = hal::buttons::pressedA();
+  if (aNow && !bs.prevA) {
+    // fresh press
+    bs.aLongFired = false;
+    if (screenOff) { swallowBtnA = true; }
+    wake();
+  }
+  if (aNow && !bs.aLongFired && !swallowBtnA && hal::buttons::heldA(600)) {
+    bs.aLongFired = true;
+    beep(800, 60);
+    emit(Btn::A, BtnEvent::LongPress);
+  }
+  if (!aNow && bs.prevA) {
+    // released
+    if (!bs.aLongFired && !swallowBtnA) {
+      emit(Btn::A, BtnEvent::Tap);
+    }
+    bs.aLongFired  = false;
+    swallowBtnA = false;
+  }
+  bs.prevA = aNow;
+
+  // ---- B button ----
+  bool bNow = hal::buttons::pressedB();
+  if (bNow && !bs.prevB) {
+    if (screenOff) { swallowBtnB = true; wake(); }
+    else { wake(); }
+    if (!swallowBtnB) {
+      emit(Btn::B, BtnEvent::Tap);
+    }
+    swallowBtnB = false;
+  }
+  bs.prevB = bNow;
+
+  // ---- Power button ----
+  if (hal::buttons::powerButtonPressed()) {
+    emit(Btn::Power, BtnEvent::Tap);
   }
 }
 
@@ -478,103 +559,71 @@ void loop() {
 
   bool inPrompt = tama.promptId[0] && !responseSent;
 
-  // Button-press wake. Track which button woke the screen so its full
-  // press cycle (including long-press) is swallowed — you don't want
-  // BtnA-to-wake to also cycle displayMode or open the menu.
-  if (hal::buttons::pressedA() || hal::buttons::pressedB()) {
-    if (screenOff) {
-      if (hal::buttons::pressedA()) swallowBtnA = true;
-      if (hal::buttons::pressedB()) swallowBtnB = true;
-    }
-    wake();
-  }
+  // Input event dispatch — synthesize (Button, ButtonEvent) from raw polls,
+  // route to the active screen's handleButton first, then fall back to global
+  // actions. The wake/swallow logic lives inside pollInput.
+  pollInput([&](Btn b, BtnEvent e) {
+    bool consumed = false;
 
-  // AXP power button (left side): short-press toggles screen off.
-  // Long-press (6s) still powers off the device via AXP hardware.
-  if (hal::buttons::powerButtonPressed()) {
-    if (screenOff) {
-      wake();
-    } else {
-      hal::power::setLcdPower(false);
-      screenOff = true;
-    }
-  }
+    // Route to active screen
+    if      (resetOpen)              consumed = screen::reset::handleButton(b, e);
+    else if (settingsOpen)           consumed = screen::settings::handleButton(b, e);
+    else if (menuOpen)               consumed = screen::menu::handleButton(b, e);
+    else if (inPrompt)               consumed = screen::approval::handleButton(b, e);
+    else if (displayMode == DISP_PET) consumed = screen::petstats::handleButton(b, e);
 
-  if (hal::buttons::heldA(600) && !btnALong && !swallowBtnA) {
-    btnALong = true;
-    beep(800, 60);
-    if (resetOpen) { resetOpen = false; }
-    else if (settingsOpen) { settingsOpen = false; characterInvalidate(); }
-    else {
-      menuOpen = !menuOpen;
-      screen::menu::setSelected(0);
-      if (!menuOpen) characterInvalidate();
+    if (consumed) return;
+
+    // Global fallback
+    if (b == Btn::Power) {
+      // AXP power button: short-press toggles screen off (long-press handled by AXP HW)
+      if (screenOff) { wake(); }
+      else { hal::power::setLcdPower(false); screenOff = true; }
+      return;
     }
-    Serial.println(menuOpen ? "menu open" : "menu close");
-  }
-  if (hal::buttons::wasReleasedA()) {
-    if (!btnALong && !swallowBtnA) {
-      if (inPrompt) {
-        char cmd[96];
-        snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"once\"}", tama.promptId);
-        sendCmd(cmd);
-        responseSent = true;
-        uint32_t tookS = (millis() - promptArrivedMs) / 1000;
-        statsOnApproval(tookS);
-        beep(2400, 60);
-        if (tookS < 5) triggerOneShot(P_HEART, 2000);
-      } else if (resetOpen) {
-        beep(1800, 30);
-        screen::reset::setSelected(screen::reset::selected() + 1);
-        screen::reset::setLastConfirm(0xFF, 0);
-      } else if (settingsOpen) {
-        beep(1800, 30);
-        screen::settings::setSelected(screen::settings::selected() + 1);
-      } else if (menuOpen) {
-        beep(1800, 30);
-        screen::menu::setSelected(screen::menu::selected() + 1);
-      } else {
-        beep(1800, 30);
-        displayMode = (displayMode + 1) % DISP_COUNT;
-        applyDisplayMode();
+
+    if (b == Btn::A && e == BtnEvent::LongPress) {
+      // Long-press A: open/close menu or escape from sub-screens
+      if (resetOpen) { resetOpen = false; }
+      else if (settingsOpen) { settingsOpen = false; characterInvalidate(); }
+      else {
+        menuOpen = !menuOpen;
+        screen::menu::setSelected(0);
+        if (!menuOpen) characterInvalidate();
       }
+      Serial.println(menuOpen ? "menu open" : "menu close");
+      return;
     }
-    btnALong = false;
-    swallowBtnA = false;
-  }
 
-  // BtnB: pet → heart
-  if (hal::buttons::wasPressedB()) {
-    if (swallowBtnB) { swallowBtnB = false; }
-    else
-    if (inPrompt) {
-      char cmd[96];
-      snprintf(cmd, sizeof(cmd), "{\"cmd\":\"permission\",\"id\":\"%s\",\"decision\":\"deny\"}", tama.promptId);
-      sendCmd(cmd);
-      responseSent = true;
-      statsOnDenial();
-      beep(600, 60);
-    } else if (resetOpen) {
-      beep(2400, 30);
-      applyReset(screen::reset::selected());
-    } else if (settingsOpen) {
-      beep(2400, 30);
-      applySetting(screen::settings::selected());
-    } else if (menuOpen) {
-      beep(2400, 30);
-      menuConfirm();
-    } else if (displayMode == DISP_INFO) {
-      beep(2400, 30);
-      screen::info::nextPage();
-    } else if (displayMode == DISP_PET) {
-      beep(2400, 30);
-      screen::petstats::nextPage();
+    if (b == Btn::A && e == BtnEvent::Tap) {
+      // A-tap global: cycle display mode
+      beep(1800, 30);
+      displayMode = (displayMode + 1) % DISP_COUNT;
       applyDisplayMode();
-    } else {
-      beep(2400, 30);
-      screen::hud::scrollMessage();
+      return;
     }
-  }
+
+    if (b == Btn::B && e == BtnEvent::Tap) {
+      // B-tap global: activate / scroll depending on context
+      if (resetOpen) {
+        beep(2400, 30);
+        applyReset(screen::reset::selected());
+      } else if (settingsOpen) {
+        beep(2400, 30);
+        applySetting(screen::settings::selected());
+      } else if (menuOpen) {
+        beep(2400, 30);
+        menuConfirm();
+      } else if (displayMode == DISP_INFO) {
+        beep(2400, 30);
+        screen::info::nextPage();
+      } else {
+        beep(2400, 30);
+        screen::hud::scrollMessage();
+      }
+      return;
+    }
+  });
 
   // blink bookkeeping
 

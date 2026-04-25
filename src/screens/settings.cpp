@@ -4,6 +4,8 @@
 #include "../buddy.h"
 #include <stdio.h>
 
+extern void beep(uint16_t freq, uint16_t dur);
+
 extern uint8_t brightLevel;
 extern bool    gifAvailable;
 extern bool    buddyMode;
@@ -20,6 +22,12 @@ static uint8_t selIdx = 0;
 uint8_t selected()             { return selIdx; }
 void    setSelected(uint8_t i) { selIdx = i % N; }
 uint8_t itemCount()            { return N; }
+
+bool handleButton(Btn b, BtnEvent e) {
+  // A-tap: advance selection; B-tap: activate item (falls through to main.cpp)
+  if (b == Btn::A && e == BtnEvent::Tap) { beep(1800, 30); selIdx = (selIdx + 1) % N; return true; }
+  return false;
+}
 
 void draw() {
   const Palette& p = characterPalette();
