@@ -10,18 +10,22 @@ extern M5Canvas& canvas;
 namespace screen { namespace passkey {
 
 void draw() {
-  static constexpr int W = 135;  // screen width
+  const int W = hal::display::width();
+  const bool lg = hal::display::isLarge();
   const Palette& p = characterPalette();
   canvas.fillSprite(p.bg);
-  canvas.setTextSize(1);
+  canvas.setTextSize(lg ? 2 : 1);
   canvas.setTextColor(p.textDim, p.bg);
   canvas.setCursor(8, 56);  canvas.print("BLUETOOTH PAIRING");
   canvas.setCursor(8, 184); canvas.print("enter on desktop:");
-  canvas.setTextSize(3);
+  const int pkSize = lg ? 5 : 3;
+  canvas.setTextSize(pkSize);
   canvas.setTextColor(p.text, p.bg);
   char b[8]; snprintf(b, sizeof(b), "%06lu", (unsigned long)blePasskey());
-  canvas.setCursor((W - 18 * 6) / 2, 110);
+  // Each char is pkSize*6 px wide; 6 digits total → center in W
+  canvas.setCursor((W - pkSize * 6 * 6) / 2, 110);
   canvas.print(b);
+  canvas.setTextSize(1);
 }
 
 }}

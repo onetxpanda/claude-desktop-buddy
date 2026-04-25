@@ -8,5 +8,6 @@ namespace hal { namespace display {
   int  width();
   int  height();
   void setRotation(uint8_t r);
-  void push();
+  void push();                     // sprite → LCD
+  bool isLarge();                  // true when display width ≥ 320 (Core2-class)
 }}

@@ -32,15 +32,16 @@ bool handleButton(Btn b, BtnEvent e) {
 }
 
 static void tinyHeart(int x, int y, bool filled, uint16_t col) {
+  const int r = hal::display::isLarge() ? 6 : 4;
   if (filled) {
-    canvas.fillCircle(x - 4, y, 4, col);
-    canvas.fillCircle(x + 4, y, 4, col);
-    canvas.fillTriangle(x - 8, y + 2, x + 8, y + 2, x, y + 10, col);
+    canvas.fillCircle(x - r, y, r, col);
+    canvas.fillCircle(x + r, y, r, col);
+    canvas.fillTriangle(x - 2*r, y + r/2, x + 2*r, y + r/2, x, y + 2*r + r/2, col);
   } else {
-    canvas.drawCircle(x - 4, y, 4, col);
-    canvas.drawCircle(x + 4, y, 4, col);
-    canvas.drawLine(x - 8, y + 2, x, y + 10, col);
-    canvas.drawLine(x + 8, y + 2, x, y + 10, col);
+    canvas.drawCircle(x - r, y, r, col);
+    canvas.drawCircle(x + r, y, r, col);
+    canvas.drawLine(x - 2*r, y + r/2, x, y + 2*r + r/2, col);
+    canvas.drawLine(x + 2*r, y + r/2, x, y + 2*r + r/2, col);
   }
 }
 
@@ -59,19 +60,22 @@ static void drawPetStats(const Palette& p) {
 
   // Fed: 10 dots centered in tenth-width cells
   uint8_t fed = statsFedProgress();
+  const int dotR = hal::display::isLarge() ? 5 : 4;
   for (int i = 0; i < 10; i++) {
     int cx = (W * (2 * i + 1)) / 20;
-    if (i < fed) canvas.fillCircle(cx, 108, 4, p.body);
-    else         canvas.drawCircle(cx, 108, 4, p.textDim);
+    if (i < fed) canvas.fillCircle(cx, 108, dotR, p.body);
+    else         canvas.drawCircle(cx, 108, dotR, p.textDim);
   }
 
   // Energy: 5 bars centered in fifth-width cells
   uint8_t en = statsEnergyTier();
   uint16_t enCol = (en >= 4) ? 0x07FF : (en >= 2) ? 0xFFE0 : HOT;
+  const int barW = hal::display::isLarge() ? 22 : 15;
+  const int barH = hal::display::isLarge() ? 14 : 10;
   for (int i = 0; i < 5; i++) {
     int cx = (W * (2 * i + 1)) / 10;
-    if (i < en) canvas.fillRect(cx - 7, 122, 15, 10, enCol);
-    else        canvas.drawRect(cx - 7, 122, 15, 10, p.textDim);
+    if (i < en) canvas.fillRect(cx - barW/2, 122, barW, barH, enCol);
+    else        canvas.drawRect(cx - barW/2, 122, barW, barH, p.textDim);
   }
 
   int y = 136;

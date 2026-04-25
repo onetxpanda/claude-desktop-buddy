@@ -18,8 +18,9 @@ extern int activeState;  // PersonaState enum, but int to avoid including the en
 
 namespace screen { namespace info {
 
-static constexpr int W = 135;
-static constexpr int H = 240;
+// W and H are read at runtime so Core2 (320×240) gets the correct values.
+static int W = 135;
+static int H = 240;
 static constexpr uint8_t INFO_PAGES = 6;
 static constexpr uint16_t HOT = 0xFA20;   // red-orange: warnings, impatience, deny
 
@@ -37,6 +38,8 @@ static void _infoHeader(const Palette& p, int& y, const char* section, uint8_t p
 }
 
 void draw() {
+  W = hal::display::width();
+  H = hal::display::height();
   const Palette& p = characterPalette();
   const int TOP = 70;
   canvas.fillRect(0, TOP, W, H - TOP, p.bg);

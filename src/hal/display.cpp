@@ -28,5 +28,6 @@ int  width()                 { return M5.Display.width(); }
 int  height()                { return M5.Display.height(); }
 void setRotation(uint8_t r)  { M5.Display.setRotation(r); }
 void push()                  { _spr.pushSprite(&M5.Display, 0, 0); }
+bool isLarge()               { return M5.Display.width() >= 320; }
 
 }}

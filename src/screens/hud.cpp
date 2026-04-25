@@ -49,13 +49,15 @@ static uint8_t wrapInto(const char* in, char out[][24], uint8_t maxRows, uint8_t
 
 void draw() {
   const Palette& p = characterPalette();
-  const int SHOW = 3, LH = 8, WIDTH = 21;
+  const int SHOW = 3;
+  const int LH = hal::display::isLarge() ? 16 : 8;
+  const int WIDTH = hal::display::isLarge() ? 13 : 21;
   const int AREA = SHOW * LH + 4;
   int W = hal::display::width();
   int H = hal::display::height();
 
   canvas.fillRect(0, H - AREA, W, AREA, p.bg);
-  canvas.setTextSize(1);
+  canvas.setTextSize(hal::display::isLarge() ? 2 : 1);
 
   if (tama.lineGen != lastLineGen) { msgScroll = 0; lastLineGen = tama.lineGen; }
   // NOTE: wake() call removed; this notification was informational only.

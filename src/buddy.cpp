@@ -2,6 +2,7 @@
 #include "buddy_common.h"
 #include <M5Unified.h>
 #include <string.h>
+#include "hal/display.h"
 
 extern M5Canvas& canvas;
 
@@ -10,7 +11,7 @@ enum { B_SLEEP, B_IDLE, B_BUSY, B_ATTENTION, B_CELEBRATE, B_DIZZY, B_HEART };
 
 // ──────────────── shared geometry ────────────────
 const int BUDDY_X_CENTER = 67;
-const int BUDDY_CANVAS_W = 135;
+int buddyCanvasW() { return hal::display::isLarge() ? 240 : 135; }
 const int BUDDY_Y_BASE   = 30;
 const int BUDDY_Y_OVERLAY = 6;
 const int BUDDY_CHAR_W   = 6;
@@ -188,7 +189,7 @@ void buddyTick(uint8_t personaState) {
   lastDrawnSpecies = currentSpeciesIdx;
 
   // Clear the whole render strip — at 2× the body reaches y≈126, at 1× ≈82.
-  canvas.fillRect(0, 0, BUDDY_CANVAS_W,
+  canvas.fillRect(0, 0, buddyCanvasW(),
                (BUDDY_Y_BASE + 5 * BUDDY_CHAR_H + 12) * _scale, BUDDY_BG);
 
   const Species* sp = SPECIES_TABLE[currentSpeciesIdx];

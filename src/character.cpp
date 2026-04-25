@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <AnimatedGIF.h>
 #include <ArduinoJson.h>
+#include "hal/display.h"
 
 extern M5Canvas& canvas;
 
@@ -40,7 +41,9 @@ static int         gifX = 0, gifY = 0, gifW = 0, gifH = 0;
 // Peek mode pins the GIF bottom to the info-panel top (y=70) so the pet
 // sits on the panel edge regardless of canvas height. Home mode centers
 // in the upper 140px. No padding assumed in the source art.
-static const int   PEEK_TOP = 70;
+// Vertical extent of the character region. Core2-class screens (320 wide)
+// give the buddy a taller band; StickC-class stays at 70.
+static int peekTop() { return hal::display::isLarge() ? 100 : 70; }
 static bool        peekMode = false;
 // Draw target — defaults to the sprite; characterRenderTo() retargets to
 // M5.Display for the landscape clock (both derive from lgfx::LGFXBase).
@@ -51,7 +54,7 @@ static void gifPlace() {
   int outW = peekMode ? gifW / 2 : gifW;
   int outH = peekMode ? gifH / 2 : gifH;
   gifX = (canvas.width() - outW) / 2;
-  gifY = peekMode ? (PEEK_TOP - outH) / 2 : (140 - outH) / 2;
+  gifY = peekMode ? (peekTop() - outH) / 2 : (140 - outH) / 2;
 }
 static uint32_t    nextFrameAt = 0;
 static uint32_t    animPauseUntil = 0;
@@ -117,7 +120,7 @@ static void gifDrawCb(GIFDRAW* d) {
   if (peekMode) {
     if (srcY & 1) return;
     int y = gifY + (srcY >> 1);
-    if (y < 0 || y >= PEEK_TOP) return;
+    if (y < 0 || y >= peekTop()) return;
     int x0 = gifX + (d->iX >> 1);
     int w  = d->iWidth >> 1;
     for (int i = 0; i < w; i++) put(x0 + i, y, src[i << 1]);

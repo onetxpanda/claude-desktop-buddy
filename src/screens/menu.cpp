@@ -24,19 +24,22 @@ bool handleButton(Btn b, BtnEvent e) {
 
 void draw() {
   const Palette& p = characterPalette();
-  int mw = 118, mh = 16 + N * 14 + MENU_HINT_H;
+  const bool lg = hal::display::isLarge();
+  const int itemH = lg ? 22 : 14;
+  int mw = lg ? 180 : 118, mh = 16 + N * itemH + MENU_HINT_H;
   int mx = (hal::display::width() - mw) / 2, my = (hal::display::height() - mh) / 2;
   canvas.fillRoundRect(mx, my, mw, mh, 4, MENU_PANEL);
   canvas.drawRoundRect(mx, my, mw, mh, 4, p.textDim);
-  canvas.setTextSize(1);
+  canvas.setTextSize(lg ? 2 : 1);
   for (int i = 0; i < N; i++) {
     bool sel = (i == selIdx);
     canvas.setTextColor(sel ? p.text : p.textDim, MENU_PANEL);
-    canvas.setCursor(mx + 6, my + 8 + i * 14);
+    canvas.setCursor(mx + 6, my + 8 + i * itemH);
     canvas.print(sel ? "> " : "  ");
     canvas.print(items[i]);
     if (i == 4) canvas.print(dataDemo() ? "  on" : "  off");
   }
+  canvas.setTextSize(1);
   drawMenuHints(p, mx, mw, my + mh - 12);
 }
 
