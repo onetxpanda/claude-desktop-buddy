@@ -502,6 +502,14 @@ void setup() {
   }
 
   Serial.printf("buddy: %s\n", buddyMode ? "ASCII mode" : "GIF character loaded");
+
+#ifdef NATIVE_BUILD
+  // Emulator hook: EMULATOR_DEMO=1 enables demo mode at boot so the HUD
+  // gets fake transcript/session data to render. Without this, the
+  // emulator stays on the "no Claude connected" path forever and we
+  // can't capture HUD layouts in the screenshot harness.
+  if (getenv("EMULATOR_DEMO")) dataSetDemo(true);
+#endif
 }
 
 void loop() {
