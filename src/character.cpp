@@ -47,7 +47,9 @@ static int peekTop() { return hal::display::isLarge() ? 100 : 70; }
 static bool        peekMode = false;
 // Draw target — defaults to the sprite; characterRenderTo() retargets to
 // M5.Display for the landscape clock (both derive from lgfx::LGFXBase).
-static lgfx::LGFXBase*   _tgt = &canvas;
+// See buddy.cpp:_tgt — function-call form sidesteps the cross-TU static init
+// order issue that bites on PIO native (canvas reference unbound when this runs).
+static lgfx::LGFXBase*   _tgt = &hal::display::sprite();
 // Peek mode renders at half scale (2:1 nearest-neighbor in gifDrawCb) so
 // the whole pet fits the 70px window instead of cropping the top.
 static void gifPlace() {

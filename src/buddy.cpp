@@ -34,7 +34,12 @@ const uint16_t BUDDY_BLUE   = 0x041F;
 // M5.Display for landscape clock mode (both derive from lgfx::LGFXBase).
 // Coords stay fixed — species hardcode BUDDY_X_CENTER/BUDDY_Y_OVERLAY in
 // their particle calls, so retargeting position would only move the body.
-static lgfx::LGFXBase* _tgt = &canvas;
+// Note: initialized via the function call (returns &_spr in hal/display.cpp)
+// rather than `&canvas`. Both refer to the same sprite, but `&canvas` reads
+// the `canvas` reference's hidden pointer — which is zero until main.cpp's
+// static init runs, and PIO native link order doesn't guarantee that order.
+// The function call resolves to a constant address regardless of init order.
+static lgfx::LGFXBase* _tgt = &hal::display::sprite();
 // 2× on home screen, 1× in peek (PET/INFO) and landscape clock. Species
 // art is space-padded to a fixed width for alignment at 1×; at 2× we trim
 // and re-center per line so the padding doesn't push ink off-screen.
