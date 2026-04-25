@@ -31,20 +31,24 @@ bool handleButton(Btn b, BtnEvent e) {
 
 void draw() {
   const Palette& p = characterPalette();
-  int mw = 118, mh = 16 + N * 14 + MENU_HINT_H;
+  const bool lg = hal::display::isLarge();
+  const int itemH  = lg ? 22 : 14;
+  const int valOff = lg ? 70 : 36;   // value column inset from panel right edge
+  int mw = lg ? 240 : 118;
+  int mh = 16 + N * itemH + MENU_HINT_H;
   int mx = (hal::display::width() - mw) / 2, my = (hal::display::height() - mh) / 2;
   canvas.fillRoundRect(mx, my, mw, mh, 4, MENU_PANEL);
   canvas.drawRoundRect(mx, my, mw, mh, 4, p.textDim);
-  canvas.setTextSize(1);
+  canvas.setTextSize(lg ? 2 : 1);
   Settings& s = ::settings();
   bool vals[] = { s.sound, s.bt, s.wifi, s.led, s.hud };
   for (int i = 0; i < N; i++) {
     bool sel = (i == selIdx);
     canvas.setTextColor(sel ? p.text : p.textDim, MENU_PANEL);
-    canvas.setCursor(mx + 6, my + 8 + i * 14);
+    canvas.setCursor(mx + 6, my + 8 + i * itemH);
     canvas.print(sel ? "> " : "  ");
     canvas.print(items[i]);
-    canvas.setCursor(mx + mw - 36, my + 8 + i * 14);
+    canvas.setCursor(mx + mw - valOff, my + 8 + i * itemH);
     canvas.setTextColor(p.textDim, MENU_PANEL);
     if (i == 0) {
       canvas.printf("%u/4", brightLevel);
@@ -60,6 +64,7 @@ void draw() {
       canvas.printf("%u/%u", pos, total);
     }
   }
+  canvas.setTextSize(1);
   drawMenuHints(p, mx, mw, my + mh - 12, "Next", "Change");
 }
 
