@@ -1,0 +1,113 @@
+# Builds the SDL emulator, captures every major screen layout, and deploys
+# the docs/ folder to GitHub Pages on every push. The site (docs/index.html)
+# pulls images directly from docs/emulator/screenshots/, so the deploy is
+# self-contained — no separate image hosting.
+#
+# To enable: repo Settings → Pages → Source: "GitHub Actions".
+name: Update emulator screenshots
+
+on:
+  push:
+    branches:
+      - main
+      - hal-refactor
+      - 'claude/**'
+    paths:
+      - 'src/**'
+      - 'platformio.ini'
+      - 'support/native/**'
+      - 'docs/**'
+      - '.github/workflows/screenshots.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Don't queue overlapping deploys — last push wins.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libsdl2-dev xvfb imagemagick
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            pio-${{ runner.os }}-
+
+      - name: Cache PIO library deps
+        uses: actions/cache@v4
+        with:
+          path: .pio/libdeps
+          key: pio-libdeps-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            pio-libdeps-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: python3 -m pip install --upgrade platformio
+
+      - name: Build emulator binaries
+        run: pio run -e emulator_stickc -e emulator_core2
+
+      - name: Capture screen layouts
+        run: support/native/capture_screens.sh
+
+      - name: Sanity-check captures
+        run: |
+          n=$(ls docs/emulator/screenshots/*.png | wc -l)
+          echo "Found $n PNGs"
+          if [ "$n" -lt 14 ]; then
+            echo "::error::Expected at least 14 captures, got $n"
+            exit 1
+          fi
+
+      - name: Stamp build info into the site
+        run: |
+          # Inject commit SHA + branch + UTC time into the footer so the
+          # served page proves which commit produced these layouts.
+          sha="${GITHUB_SHA::7}"
+          branch="${GITHUB_REF_NAME}"
+          when="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          sed -i "s|<p id=\"meta\"></p>|<p id=\"meta\">Built from <code>${branch}@${sha}</code> at ${when}.</p>|" docs/index.html
+
+      - name: Stage site for Pages
+        run: |
+          mkdir -p _site
+          cp -r docs/. _site/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: capture
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

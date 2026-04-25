@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claude-desktop-buddy &mdash; emulator screens</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --fg: #e6e6e6;
+    --fg-dim: #9a9a9a;
+    --bg: #0e0e10;
+    --panel: #18181b;
+    --border: #2a2a2e;
+    --accent: #5acca5;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.5;
+  }
+  body {
+    padding: 2rem clamp(1rem, 3vw, 3rem) 4rem;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  header h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.6rem;
+    font-weight: 600;
+  }
+  header p {
+    margin: 0;
+    color: var(--fg-dim);
+    font-size: 0.95rem;
+  }
+  header a { color: var(--accent); }
+
+  h2 {
+    margin: 2.5rem 0 0.25rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+  h2 .specs {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--fg-dim);
+    margin-left: 0.6rem;
+  }
+
+  .row {
+    display: flex;
+    gap: 1.25rem;
+    overflow-x: auto;
+    padding: 1rem 0.25rem 1.5rem;
+    scroll-snap-type: x proximity;
+    scrollbar-color: var(--border) transparent;
+  }
+  .row::-webkit-scrollbar { height: 10px; }
+  .row::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+
+  .shot {
+    flex: 0 0 auto;
+    text-align: center;
+    scroll-snap-align: start;
+  }
+  .shot a {
+    display: block;
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px;
+    line-height: 0;
+    transition: border-color 0.15s;
+  }
+  .shot a:hover { border-color: var(--accent); }
+  .shot img {
+    /* Pixel-art crisp scaling so the LCD pixels stay sharp at display size */
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    height: 360px;
+    width: auto;
+    display: block;
+  }
+  .shot .label {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--fg-dim);
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.04em;
+  }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--fg-dim);
+    font-size: 0.85rem;
+  }
+  code {
+    background: var(--panel);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>claude-desktop-buddy &mdash; emulator screens</h1>
+  <p>
+    Auto-rebuilt on every push to <code>main</code>/<code>hal-refactor</code>.
+    Source: <a href="https://github.com/onetxpanda/claude-desktop-buddy">onetxpanda/claude-desktop-buddy</a>.
+  </p>
+</header>
+
+<h2>M5StickC Plus <span class="specs">135 &times; 240 portrait, 16bpp</span></h2>
+<div class="row">
+  <figure class="shot"><a href="emulator/screenshots/stickc_idle.png"><img src="emulator/screenshots/stickc_idle.png" alt="idle"></a><div class="label">idle</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/stickc_menu.png"><img src="emulator/screenshots/stickc_menu.png" alt="menu"></a><div class="label">menu</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/stickc_settings.png"><img src="emulator/screenshots/stickc_settings.png" alt="settings"></a><div class="label">settings</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/stickc_pet.png"><img src="emulator/screenshots/stickc_pet.png" alt="pet stats"></a><div class="label">pet stats</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/stickc_info1.png"><img src="emulator/screenshots/stickc_info1.png" alt="info 1"></a><div class="label">info 1</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/stickc_info2.png"><img src="emulator/screenshots/stickc_info2.png" alt="info 2"></a><div class="label">info 2</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/stickc_info3.png"><img src="emulator/screenshots/stickc_info3.png" alt="info 3"></a><div class="label">info 3</div></figure>
+</div>
+
+<h2>M5Stack Core2 <span class="specs">320 &times; 240 landscape, 8bpp RGB332</span></h2>
+<div class="row">
+  <figure class="shot"><a href="emulator/screenshots/core2_idle.png"><img src="emulator/screenshots/core2_idle.png" alt="idle"></a><div class="label">idle</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/core2_menu.png"><img src="emulator/screenshots/core2_menu.png" alt="menu"></a><div class="label">menu</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/core2_settings.png"><img src="emulator/screenshots/core2_settings.png" alt="settings"></a><div class="label">settings</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/core2_pet.png"><img src="emulator/screenshots/core2_pet.png" alt="pet stats"></a><div class="label">pet stats</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/core2_info1.png"><img src="emulator/screenshots/core2_info1.png" alt="info 1"></a><div class="label">info 1</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/core2_info2.png"><img src="emulator/screenshots/core2_info2.png" alt="info 2"></a><div class="label">info 2</div></figure>
+  <figure class="shot"><a href="emulator/screenshots/core2_info3.png"><img src="emulator/screenshots/core2_info3.png" alt="info 3"></a><div class="label">info 3</div></figure>
+</div>
+
+<footer>
+  <p>
+    Captured headlessly via SDL2 + Xvfb in a GitHub Actions runner. The emulator runs the same firmware
+    binary as the device (M5GFX renders identically on SDL); only sensors, BLE, and persistent storage
+    are stubbed. See
+    <a href="https://github.com/onetxpanda/claude-desktop-buddy/blob/main/support/native/">support/native/</a>
+    and
+    <a href="https://github.com/onetxpanda/claude-desktop-buddy/blob/main/.github/workflows/screenshots.yml">.github/workflows/screenshots.yml</a>.
+  </p>
+  <p id="meta"></p>
+</footer>
+
+<script>
+  // Inline last-modified timestamp so the page proves it's fresh.
+  fetch('emulator/screenshots/stickc_idle.png', { method: 'HEAD' })
+    .then(r => {
+      const t = r.headers.get('last-modified');
+      if (t) document.getElementById('meta').textContent = 'Screenshots last updated ' + new Date(t).toLocaleString();
+    }).catch(() => {});
+</script>
+</body>
+</html>
