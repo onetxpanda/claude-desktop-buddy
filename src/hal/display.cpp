@@ -7,19 +7,20 @@ namespace hal { namespace display {
 
 void begin() {
   M5.Display.setColorDepth(16);
-  // PSRAM-backed sprites have DMA cache coherency issues with M5GFX's pushSprite
-  // on Core2 — sprite writes don't get flushed before DMA reads. Force internal
-  // RAM. At 16bpp a 320x240 sprite is 150 KB which won't fit in internal RAM
-  // alongside BLE, so drop to 8bpp on PSRAM-equipped boards. StickC has no PSRAM
-  // and a 135x240 sprite at 16bpp (65 KB) fits internal RAM trivially.
   if (psramFound()) {
+    // Core2: 8bpp RGB332 in internal RAM. PSRAM-backed 16bpp sprites have DMA
+    // cache coherency issues with M5GFX's pushSprite on this board, and a
+    // 16bpp full-screen sprite (150 KB) doesn't fit alongside BLE in internal
+    // RAM. 8bpp at 320×240 = 76 KB fits comfortably. Skipping createPalette()
+    // keeps the canvas in RGB332 mode (R3-G3-B2 packed in 8 bits) so drawing
+    // with raw 16bpp colors quantizes directly to RGB332 — colorful and cheap,
+    // versus paletted mode which would require explicit index-based drawing.
     _spr.setColorDepth(8);
     _spr.setPsram(false);
+  } else {
+    _spr.setColorDepth(16);
   }
   _spr.createSprite(M5.Display.width(), M5.Display.height());
-  if (psramFound()) {
-    _spr.createPalette();   // 8bpp paletted sprites need an explicit palette
-  }
 }
 
 M5GFX&       lcd()           { return M5.Display; }
