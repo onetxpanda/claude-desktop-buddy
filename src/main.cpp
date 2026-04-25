@@ -33,6 +33,9 @@ static void startBt() {
 #include "screens/approval.h"
 #include "screens/clock.h"
 #include "screens/stats.h"
+#include "screens/menu.h"
+#include "screens/settings.h"
+#include "screens/reset.h"
 #include "stats.h"
 const int W = 135, H = 240;
 const int CX = W / 2;
@@ -56,7 +59,6 @@ unsigned long t = 0;
 
 // Menu
 bool    menuOpen    = false;
-uint8_t menuSel     = 0;
 uint8_t brightLevel = 4;           // 0..4 → ScreenBreath 20..100
 bool    btnALong    = false;
 
@@ -140,20 +142,8 @@ void applyDisplayMode() {
   characterInvalidate();  // redraws character on next tick (text mode path)
 }
 
-const char* menuItems[] = { "settings", "turn off", "help", "about", "demo", "close" };
-const uint8_t MENU_N = 6;
-
 bool    settingsOpen = false;
-uint8_t settingsSel  = 0;
-const char* settingsItems[] = { "brightness", "sound", "bluetooth", "wifi", "led", "transcript", "clock rot", "ascii pet", "reset", "back" };
-const uint8_t SETTINGS_N = 10;
-
 bool    resetOpen = false;
-uint8_t resetSel  = 0;
-const char* resetItems[] = { "delete char", "factory reset", "back" };
-const uint8_t RESET_N = 3;
-static uint32_t resetConfirmUntil = 0;
-static uint8_t  resetConfirmIdx = 0xFF;
 
 static void applySetting(uint8_t idx) {
   Settings& s = settings();
@@ -175,7 +165,7 @@ static void applySetting(uint8_t idx) {
     case 5: s.hud = !s.hud; break;
     case 6: s.clockRot = (s.clockRot + 1) % 3; break;
     case 7: nextPet(); return;
-    case 8: resetOpen = true; resetSel = 0; resetConfirmIdx = 0xFF; return;
+    case 8: resetOpen = true; screen::reset::setSelected(0); screen::reset::setLastConfirm(0xFF, 0); return;
     case 9: settingsOpen = false; characterInvalidate(); return;
   }
   settingsSave();
@@ -185,13 +175,13 @@ static void applySetting(uint8_t idx) {
 // within 3s executes. Scrolling away clears the arm.
 static void applyReset(uint8_t idx) {
   uint32_t now = millis();
-  bool armed = (resetConfirmIdx == idx) && (int32_t)(now - resetConfirmUntil) < 0;
+  bool armed = (screen::reset::lastConfirmIdx() == idx) &&
+               (int32_t)(now - screen::reset::confirmDeadline()) < 0;
 
   if (idx == 2) { resetOpen = false; return; }
 
   if (!armed) {
-    resetConfirmIdx = idx;
-    resetConfirmUntil = now + 3000;
+    screen::reset::setLastConfirm(idx, now + 3000);
     beep(1400, 60);
     return;
   }
@@ -236,111 +226,23 @@ static void applyReset(uint8_t idx) {
   ESP.restart();
 }
 
-// Footer hint row inside a menu panel: "<downLbl> ↓  <rightLbl> →" with
-// pixel triangles. Panels add MENU_HINT_H to height and call this at bottom.
-const int MENU_HINT_H = 14;
-static void drawMenuHints(const Palette& p, int mx, int mw, int hy,
-                          const char* downLbl = "A", const char* rightLbl = "B") {
-  spr.drawFastHLine(mx + 6, hy - 4, mw - 12, p.textDim);
-  spr.setTextColor(p.textDim, PANEL);
-  // 6px/glyph at size 1; triangle goes 4px after the label ends
-  int x = mx + 8;
-  spr.setCursor(x, hy); spr.print(downLbl);
-  x += strlen(downLbl) * 6 + 4;
-  spr.fillTriangle(x, hy + 1, x + 6, hy + 1, x + 3, hy + 6, p.textDim);
-  x = mx + mw / 2 + 4;
-  spr.setCursor(x, hy); spr.print(rightLbl);
-  x += strlen(rightLbl) * 6 + 4;
-  spr.fillTriangle(x, hy, x, hy + 6, x + 5, hy + 3, p.textDim);
-}
-
-static void drawSettings() {
-  const Palette& p = characterPalette();
-  int mw = 118, mh = 16 + SETTINGS_N * 14 + MENU_HINT_H;
-  int mx = (W - mw) / 2, my = (H - mh) / 2;
-  spr.fillRoundRect(mx, my, mw, mh, 4, PANEL);
-  spr.drawRoundRect(mx, my, mw, mh, 4, p.textDim);
-  spr.setTextSize(1);
-  Settings& s = settings();
-  bool vals[] = { s.sound, s.bt, s.wifi, s.led, s.hud };
-  for (int i = 0; i < SETTINGS_N; i++) {
-    bool sel = (i == settingsSel);
-    spr.setTextColor(sel ? p.text : p.textDim, PANEL);
-    spr.setCursor(mx + 6, my + 8 + i * 14);
-    spr.print(sel ? "> " : "  ");
-    spr.print(settingsItems[i]);
-    spr.setCursor(mx + mw - 36, my + 8 + i * 14);
-    spr.setTextColor(p.textDim, PANEL);
-    if (i == 0) {
-      spr.printf("%u/4", brightLevel);
-    } else if (i >= 1 && i <= 5) {
-      spr.setTextColor(vals[i-1] ? GREEN : p.textDim, PANEL);
-      spr.print(vals[i-1] ? " on" : "off");
-    } else if (i == 6) {
-      static const char* const RN[] = { "auto", "port", "land" };
-      spr.print(RN[s.clockRot]);
-    } else if (i == 7) {
-      uint8_t total = buddySpeciesCount() + (gifAvailable ? 1 : 0);
-      uint8_t pos   = buddyMode ? buddySpeciesIdx() + 1 : total;
-      spr.printf("%u/%u", pos, total);
-    }
-  }
-  drawMenuHints(p, mx, mw, my + mh - 12, "Next", "Change");
-}
-
-static void drawReset() {
-  const Palette& p = characterPalette();
-  int mw = 118, mh = 16 + RESET_N * 14 + MENU_HINT_H;
-  int mx = (W - mw) / 2, my = (H - mh) / 2;
-  spr.fillRoundRect(mx, my, mw, mh, 4, PANEL);
-  spr.drawRoundRect(mx, my, mw, mh, 4, HOT);
-  spr.setTextSize(1);
-  for (int i = 0; i < RESET_N; i++) {
-    bool sel = (i == resetSel);
-    spr.setTextColor(sel ? p.text : p.textDim, PANEL);
-    spr.setCursor(mx + 6, my + 8 + i * 14);
-    spr.print(sel ? "> " : "  ");
-    bool armed = (i == resetConfirmIdx) &&
-                 (int32_t)(millis() - resetConfirmUntil) < 0;
-    if (armed) spr.setTextColor(HOT, PANEL);
-    spr.print(armed ? "really?" : resetItems[i]);
-  }
-  drawMenuHints(p, mx, mw, my + mh - 12);
-}
-
 void menuConfirm() {
-  switch (menuSel) {
-    case 0: settingsOpen = true; menuOpen = false; settingsSel = 0; break;
+  switch (screen::menu::selected()) {
+    case 0: settingsOpen = true; menuOpen = false; screen::settings::setSelected(0); break;
     case 1: hal::power::powerOff(); break;
     case 2:
-    case 3:
+    case 3: {
+      uint8_t sel = screen::menu::selected();
       menuOpen = false;
       displayMode = DISP_INFO;
-      for (uint8_t i = 0; i < ((menuSel == 2) ? 1 : 5); i++) screen::info::nextPage();
+      for (uint8_t i = 0; i < ((sel == 2) ? 1 : 5); i++) screen::info::nextPage();
       applyDisplayMode();
       characterInvalidate();
       break;
+    }
     case 4: dataSetDemo(!dataDemo()); break;
     case 5: menuOpen = false; characterInvalidate(); break;
   }
-}
-
-void drawMenu() {
-  const Palette& p = characterPalette();
-  int mw = 118, mh = 16 + MENU_N * 14 + MENU_HINT_H;
-  int mx = (W - mw) / 2, my = (H - mh) / 2;
-  spr.fillRoundRect(mx, my, mw, mh, 4, PANEL);
-  spr.drawRoundRect(mx, my, mw, mh, 4, p.textDim);
-  spr.setTextSize(1);
-  for (int i = 0; i < MENU_N; i++) {
-    bool sel = (i == menuSel);
-    spr.setTextColor(sel ? p.text : p.textDim, PANEL);
-    spr.setCursor(mx + 6, my + 8 + i * 14);
-    spr.print(sel ? "> " : "  ");
-    spr.print(menuItems[i]);
-    if (i == 4) spr.print(dataDemo() ? "  on" : "  off");
-  }
-  drawMenuHints(p, mx, mw, my + mh - 12);
 }
 
 // Clock orientation: gravity along the in-plane X axis means the stick is
@@ -605,7 +507,7 @@ void loop() {
     else if (settingsOpen) { settingsOpen = false; characterInvalidate(); }
     else {
       menuOpen = !menuOpen;
-      menuSel = 0;
+      screen::menu::setSelected(0);
       if (!menuOpen) characterInvalidate();
     }
     Serial.println(menuOpen ? "menu open" : "menu close");
@@ -623,14 +525,14 @@ void loop() {
         if (tookS < 5) triggerOneShot(P_HEART, 2000);
       } else if (resetOpen) {
         beep(1800, 30);
-        resetSel = (resetSel + 1) % RESET_N;
-        resetConfirmIdx = 0xFF;
+        screen::reset::setSelected(screen::reset::selected() + 1);
+        screen::reset::setLastConfirm(0xFF, 0);
       } else if (settingsOpen) {
         beep(1800, 30);
-        settingsSel = (settingsSel + 1) % SETTINGS_N;
+        screen::settings::setSelected(screen::settings::selected() + 1);
       } else if (menuOpen) {
         beep(1800, 30);
-        menuSel = (menuSel + 1) % MENU_N;
+        screen::menu::setSelected(screen::menu::selected() + 1);
       } else {
         beep(1800, 30);
         displayMode = (displayMode + 1) % DISP_COUNT;
@@ -654,10 +556,10 @@ void loop() {
       beep(600, 60);
     } else if (resetOpen) {
       beep(2400, 30);
-      applyReset(resetSel);
+      applyReset(screen::reset::selected());
     } else if (settingsOpen) {
       beep(2400, 30);
-      applySetting(settingsSel);
+      applySetting(screen::settings::selected());
     } else if (menuOpen) {
       beep(2400, 30);
       menuConfirm();
@@ -757,9 +659,9 @@ void loop() {
       if (tama.promptId[0]) screen::approval::draw();
       else                  screen::hud::draw();
     }
-    if (resetOpen) drawReset();
-    else if (settingsOpen) drawSettings();
-    else if (menuOpen) drawMenu();
+    if (resetOpen) screen::reset::draw();
+    else if (settingsOpen) screen::settings::draw();
+    else if (menuOpen) screen::menu::draw();
     hal::display::push();
   }
 
