@@ -36,13 +36,15 @@ shoot() {
 
 for board in stickc core2; do
   echo "== $board =="
-  shoot idle      $board ""                                                 2300 2500
-  shoot menu      $board "A:500-1300"                                       1900 2100
-  shoot settings  $board "A:500-1300,B:1500-1550"                           2100 2300
-  shoot pet       $board "A:500-550"                                        1200 1400
-  shoot info1     $board "A:500-550,A:900-950"                              1500 1700
-  shoot info2     $board "A:500-550,A:900-950,B:1300-1350"                  2000 2200
-  shoot info3     $board "A:500-550,A:900-950,B:1300-1350,B:1800-1850"      2500 2700
+  # Note: setup() ends with delay(1800), so the main loop doesn't start
+  # polling input until ~t=1800ms. All script times are offset past that.
+  shoot idle      $board ""                                                  2500  2700
+  shoot menu      $board "A:2200-3000"                                       3300  3500
+  shoot settings  $board "A:2200-3000,B:3300-3400"                           3700  3900
+  shoot pet       $board "A:2200-2300"                                       2700  2900
+  shoot info1     $board "A:2200-2300,A:2600-2700"                           3100  3300
+  shoot info2     $board "A:2200-2300,A:2600-2700,B:3000-3100"               3500  3700
+  shoot info3     $board "A:2200-2300,A:2600-2700,B:3000-3100,B:3400-3500"   3900  4100
 done
 
 echo
