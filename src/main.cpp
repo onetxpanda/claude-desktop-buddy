@@ -12,6 +12,7 @@
 #include "hal/display.h"
 #include "hal/hal.h"
 #include "input.h"
+#include "ota.h"
 #include "version.h"
 
 M5Canvas& canvas = hal::display::sprite();
@@ -690,11 +691,20 @@ void loop() {
       "m5stickc-plus";
 #endif
     snprintf(info, sizeof(info),
-      "{\"evt\":\"info\",\"board\":\"%s\",\"version\":\"%s\",\"features\":[\"xfer_v1\"]}",
+      "{\"evt\":\"info\",\"board\":\"%s\",\"version\":\"%s\",\"features\":[\"xfer_v1\",\"ota_v1\"]}",
       board, BUILD_VERSION);
     sendCmd(info);
   }
   _wasConnected = nowConnected;
+
+  // Drain pending evt:ota_* messages produced by ota::handle_command,
+  // and tick the state machine (triggers the deferred ESP.restart()
+  // after the post-commit grace period).
+  char ota_evt[160];
+  while (ota::poll_event(ota_evt, sizeof(ota_evt))) {
+    sendCmd(ota_evt);
+  }
+  ota::tick();
 
   if (napping || screenOff || landscapeClock || displayMode == DISP_INFO) {
     // skip sprite render — face-down, powered off, landscape clock (which

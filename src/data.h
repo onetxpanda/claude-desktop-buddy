@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "ble_bridge.h"
+#include "ota.h"
 #include "xfer.h"
 #include "hal/rtc.h"
 
@@ -103,6 +104,10 @@ inline bool dataRtcValid() { return _rtcValid; }
 static void _applyJson(const char* line, TamaState* out) {
   JsonDocument doc;
   if (deserializeJson(doc, line)) return;
+  // ota_* dispatch must run BEFORE xferCommand — xfer's catch-all
+  // claims any unknown cmd: when not in xfer mode (returns true), so
+  // an ota_* command would otherwise get silently consumed.
+  if (ota::handle_command(doc)) { _lastLiveMs = millis(); return; }
   if (xferCommand(doc)) { _lastLiveMs = millis(); return; }
 
   // Bridge sends {"time":[epoch_sec, tz_offset_sec]}; gmtime_r on the
