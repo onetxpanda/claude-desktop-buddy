@@ -9,7 +9,6 @@ namespace hal { namespace display {
 // the path the M5Stack examples and the M5Unified docs document for the
 // ILI9342C panel.
 void begin() {
-  M5.Display.setColorDepth(16);
 }
 
 M5GFX&  lcd()                { return M5.Display; }
