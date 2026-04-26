@@ -142,6 +142,19 @@ jobs:
         with:
           path: _site
 
+      - name: Stage release assets with board-prefixed names
+        run: |
+          # softprops/action-gh-release@v2 uploads by basename, so two
+          # "firmware.bin" files collide on the release. Flatten with a
+          # board prefix so each asset has a unique name.
+          mkdir -p _release
+          for env in m5stickc-plus m5stack-core2; do
+            for f in bootloader.bin partitions.bin firmware.bin manifest.json; do
+              cp "docs/firmware/${env}/${f}" "_release/${env}-${f}"
+            done
+          done
+          ls -la _release
+
       - name: Update "latest" GitHub Release with firmware binaries
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
@@ -162,18 +175,20 @@ jobs:
 
             | file | offset |
             |---|---|
-            | `bootloader.bin` | `0x1000` |
-            | `partitions.bin` | `0x8000` |
-            | `firmware.bin`   | `0x10000` |
+            | `<board>-bootloader.bin` | `0x1000` |
+            | `<board>-partitions.bin` | `0x8000` |
+            | `<board>-firmware.bin`   | `0x10000` |
+
+            `<board>` is one of `m5stickc-plus`, `m5stack-core2`.
           files: |
-            docs/firmware/m5stickc-plus/bootloader.bin
-            docs/firmware/m5stickc-plus/partitions.bin
-            docs/firmware/m5stickc-plus/firmware.bin
-            docs/firmware/m5stickc-plus/manifest.json
-            docs/firmware/m5stack-core2/bootloader.bin
-            docs/firmware/m5stack-core2/partitions.bin
-            docs/firmware/m5stack-core2/firmware.bin
-            docs/firmware/m5stack-core2/manifest.json
+            _release/m5stickc-plus-bootloader.bin
+            _release/m5stickc-plus-partitions.bin
+            _release/m5stickc-plus-firmware.bin
+            _release/m5stickc-plus-manifest.json
+            _release/m5stack-core2-bootloader.bin
+            _release/m5stack-core2-partitions.bin
+            _release/m5stack-core2-firmware.bin
+            _release/m5stack-core2-manifest.json
 
   deploy-pages:
     needs: build
