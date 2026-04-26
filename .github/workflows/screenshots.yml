@@ -1,10 +1,10 @@
-# Builds the SDL emulator, captures every major screen layout, and deploys
-# the docs/ folder to GitHub Pages on every push. The site (docs/index.html)
-# pulls images directly from docs/emulator/screenshots/, so the deploy is
-# self-contained — no separate image hosting.
+# Builds emulator + firmware, captures every screen layout, and publishes
+# the docs/ folder (including firmware binaries + ESP Web Tools manifests)
+# to GitHub Pages on every push. Also updates the "latest" GitHub Release
+# with the firmware binaries so users can download them directly.
 #
 # To enable: repo Settings → Pages → Source: "GitHub Actions".
-name: Update emulator screenshots
+name: Build, capture, publish
 
 on:
   push:
@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write     # write needed for the "latest" release update
   pages: write
   id-token: write
 
@@ -31,7 +31,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  capture:
+  build:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Cache PlatformIO
+      - name: Cache PlatformIO toolchains
         uses: actions/cache@v4
         with:
           path: |
@@ -84,10 +84,50 @@ jobs:
             exit 1
           fi
 
+      - name: Build firmware
+        run: pio run -e m5stickc-plus -e m5stack-core2
+
+      - name: Stage firmware binaries + ESP Web Tools manifests
+        run: |
+          # Standard ESP32 flash offsets (no_ota partition table):
+          #   bootloader  → 0x1000
+          #   partitions  → 0x8000
+          #   firmware    → 0x10000
+          # ESP Web Tools' install button reads parts/path/offset from
+          # manifest.json relative to the manifest's URL.
+          sha="${GITHUB_SHA::7}"
+          branch="${GITHUB_REF_NAME}"
+          version="${branch}@${sha}"
+          for env in m5stickc-plus m5stack-core2; do
+            dst="docs/firmware/${env}"
+            mkdir -p "$dst"
+            cp ".pio/build/${env}/firmware.bin"   "$dst/firmware.bin"
+            cp ".pio/build/${env}/bootloader.bin" "$dst/bootloader.bin"
+            cp ".pio/build/${env}/partitions.bin" "$dst/partitions.bin"
+            cat > "$dst/manifest.json" <<EOF
+          {
+            "name": "claude-desktop-buddy — ${env}",
+            "version": "${version}",
+            "home_assistant_domain": "claude_buddy",
+            "funding_url": "https://github.com/onetxpanda/claude-desktop-buddy",
+            "new_install_prompt_erase": true,
+            "builds": [
+              {
+                "chipFamily": "ESP32",
+                "parts": [
+                  { "path": "bootloader.bin", "offset": 4096 },
+                  { "path": "partitions.bin", "offset": 32768 },
+                  { "path": "firmware.bin",   "offset": 65536 }
+                ]
+              }
+            ]
+          }
+          EOF
+            ls -la "$dst"
+          done
+
       - name: Stamp build info into the site
         run: |
-          # Inject commit SHA + branch + UTC time into the footer so the
-          # served page proves which commit produced these layouts.
           sha="${GITHUB_SHA::7}"
           branch="${GITHUB_REF_NAME}"
           when="$(date -u '+%Y-%m-%d %H:%M UTC')"
@@ -102,8 +142,41 @@ jobs:
         with:
           path: _site
 
-  deploy:
-    needs: capture
+      - name: Update "latest" GitHub Release with firmware binaries
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Latest build (${{ github.ref_name }})"
+          prerelease: true
+          # Move the "latest" tag to the current commit on every release.
+          target_commitish: ${{ github.sha }}
+          body: |
+            Auto-built from `${{ github.ref_name }}` @ `${{ github.sha }}`.
+
+            Flash via the [Pages installer](https://onetxpanda.github.io/claude-desktop-buddy/)
+            (Chrome/Edge desktop with WebUSB) or with `esptool.py` /
+            `pio run -e <env> -t upload`.
+
+            Standard ESP32 flash offsets (no_ota partition table):
+
+            | file | offset |
+            |---|---|
+            | `bootloader.bin` | `0x1000` |
+            | `partitions.bin` | `0x8000` |
+            | `firmware.bin`   | `0x10000` |
+          files: |
+            docs/firmware/m5stickc-plus/bootloader.bin
+            docs/firmware/m5stickc-plus/partitions.bin
+            docs/firmware/m5stickc-plus/firmware.bin
+            docs/firmware/m5stickc-plus/manifest.json
+            docs/firmware/m5stack-core2/bootloader.bin
+            docs/firmware/m5stack-core2/partitions.bin
+            docs/firmware/m5stack-core2/firmware.bin
+            docs/firmware/m5stack-core2/manifest.json
+
+  deploy-pages:
+    needs: build
     runs-on: ubuntu-24.04
     environment:
       name: github-pages

@@ -2,3 +2,7 @@
 .vscode/
 .DS_Store
 data/
+
+# Firmware binaries are produced by CI and served from docs/firmware/ on the
+# Pages site / uploaded as Release assets — no need to commit them to git.
+docs/firmware/

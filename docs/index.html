@@ -106,6 +106,33 @@
     border-radius: 3px;
     font-size: 0.9em;
   }
+
+  .install-note {
+    color: var(--fg-dim);
+    margin: 0.5rem 0 1rem;
+    max-width: 60ch;
+  }
+  .install-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+  }
+  .install-btn {
+    appearance: none;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    padding: 0.55em 1.2em;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .install-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
 </style>
 </head>
 <body>
@@ -113,9 +140,30 @@
   <h1>claude-desktop-buddy &mdash; emulator screens</h1>
   <p>
     Auto-rebuilt on every push to <code>main</code>/<code>hal-refactor</code>.
-    Source: <a href="https://github.com/onetxpanda/claude-desktop-buddy">onetxpanda/claude-desktop-buddy</a>.
+    Source: <a href="https://github.com/onetxpanda/claude-desktop-buddy">onetxpanda/claude-desktop-buddy</a>
+    &middot; <a href="https://github.com/onetxpanda/claude-desktop-buddy/releases/tag/latest">latest release (firmware downloads)</a>
   </p>
 </header>
+
+<h2>Install</h2>
+<p class="install-note">
+  Plug your M5 device in via USB, click below, and pick the serial port. Requires a Chromium-based
+  desktop browser (Chrome, Edge, Brave) for Web Serial; flashes the firmware over USB directly from
+  this page using <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a>.
+</p>
+<div class="install-row">
+  <esp-web-install-button manifest="firmware/m5stickc-plus/manifest.json">
+    <button slot="activate" class="install-btn">Install on M5StickC Plus</button>
+    <span slot="unsupported">Use Chrome or Edge desktop &mdash; Safari/Firefox don't support Web Serial.</span>
+    <span slot="not-allowed">Web Serial requires HTTPS.</span>
+  </esp-web-install-button>
+  <esp-web-install-button manifest="firmware/m5stack-core2/manifest.json">
+    <button slot="activate" class="install-btn">Install on M5Stack Core2</button>
+    <span slot="unsupported">Use Chrome or Edge desktop &mdash; Safari/Firefox don't support Web Serial.</span>
+    <span slot="not-allowed">Web Serial requires HTTPS.</span>
+  </esp-web-install-button>
+</div>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 
 <h2>M5StickC Plus <span class="specs">135 &times; 240 portrait, 16bpp</span></h2>
 <div class="row">
