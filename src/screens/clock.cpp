@@ -4,7 +4,7 @@
 #include "../buddy.h"
 #include <stdio.h>
 
-extern M5GFX& canvas;
+extern M5Canvas& canvas;
 extern bool buddyMode;
 extern uint8_t activeState;  // PersonaState enum defined in main.cpp
 

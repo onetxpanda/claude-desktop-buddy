@@ -5,7 +5,7 @@
 #include "../hal/display.h"
 #include "../character.h"
 
-extern M5GFX& canvas;
+extern M5Canvas& canvas;
 
 static const uint16_t MENU_PANEL = 0x2104;   // overlay panel background
 static const int      MENU_HINT_H = 14;

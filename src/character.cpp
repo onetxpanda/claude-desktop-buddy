@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 #include "hal/display.h"
 
-extern M5GFX& canvas;
+extern M5Canvas& canvas;
 
 static const char* STATE_NAMES[] = {
   "sleep", "idle", "busy", "attention", "celebrate", "dizzy", "heart"
@@ -286,7 +286,7 @@ void characterClose() {
 void characterInvalidate() {
   if (!loaded) return;
   if (textMode) {
-    canvas.fillScreen(pal.bg);
+    canvas.fillSprite(pal.bg);
     uint8_t s = curState; curState = 0xFF;
     characterSetState(s);
     return;
@@ -304,7 +304,7 @@ void characterSetState(uint8_t s) {
     curState = s;
     textFrame = 0;
     textNext = 0;
-    canvas.fillScreen(pal.bg);
+    canvas.fillSprite(pal.bg);
     return;
   }
 
@@ -325,7 +325,7 @@ void characterSetState(uint8_t s) {
     gifW = gif.getCanvasWidth();
     gifH = gif.getCanvasHeight();
     gifPlace();
-    canvas.fillScreen(pal.bg);   // bias upward, leave room for HUD
+    canvas.fillSprite(pal.bg);   // bias upward, leave room for HUD
     nextFrameAt = 0;
     variantStartedMs = millis();
     Serial.printf("[char] %s: %dx%d @ (%d,%d) heap=%u\n",

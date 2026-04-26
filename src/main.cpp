@@ -13,7 +13,7 @@
 #include "hal/hal.h"
 #include "input.h"
 
-M5GFX& canvas = hal::display::sprite();
+M5Canvas& canvas = hal::display::sprite();
 
 // Advertise as "Claude-XXXX" (last two BT MAC bytes) so multiple sticks
 // in one room are distinguishable in the desktop picker. Name persists in
@@ -145,7 +145,7 @@ void applyDisplayMode() {
   // own regions when they run, but when you switch FROM info/pet TO normal,
   // those functions stop running and their stale pixels stay behind. Full
   // clear is cheap and guarantees no leftovers between modes.
-  canvas.fillScreen(0x0000);
+  canvas.fillSprite(0x0000);
   characterInvalidate();  // redraws character on next tick (text mode path)
 }
 
@@ -481,7 +481,7 @@ void setup() {
 
   {
     const Palette& p = characterPalette();
-    canvas.fillScreen(p.bg);
+    canvas.fillSprite(p.bg);
     canvas.setTextDatum(MC_DATUM);
     canvas.setTextSize(2);
     if (ownerName()[0]) {
@@ -684,7 +684,7 @@ void loop() {
     characterTick();
   } else {
     const Palette& p = characterPalette();
-    canvas.fillScreen(p.bg);
+    canvas.fillSprite(p.bg);
     canvas.setTextColor(p.textDim, p.bg);
     canvas.setTextSize(1);
     if (xferActive()) {

@@ -3,7 +3,7 @@
 #include <M5Unified.h>
 #include <string.h>
 
-extern M5GFX& canvas;
+extern M5Canvas& canvas;
 
 namespace duck {
 
