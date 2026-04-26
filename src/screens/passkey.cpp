@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 // Declared in main.cpp
-extern M5Canvas& canvas;
+extern M5GFX& canvas;
 
 namespace screen { namespace passkey {
 
@@ -13,7 +13,7 @@ void draw() {
   const int W = hal::display::width();
   const bool lg = hal::display::isLarge();
   const Palette& p = characterPalette();
-  canvas.fillSprite(p.bg);
+  canvas.fillScreen(p.bg);
   canvas.setTextSize(lg ? 2 : 1);
   canvas.setTextColor(p.textDim, p.bg);
   canvas.setCursor(8, 56);  canvas.print("BLUETOOTH PAIRING");

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-extern M5Canvas& canvas;
+extern M5GFX& canvas;
 extern TamaState tama;
 extern void applyDisplayMode();          // defined in main.cpp
 extern void beep(uint16_t freq, uint16_t dur);  // defined in main.cpp
