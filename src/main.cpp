@@ -12,6 +12,7 @@
 #include "hal/display.h"
 #include "hal/hal.h"
 #include "input.h"
+#include "version.h"
 
 M5Canvas& canvas = hal::display::sprite();
 
@@ -672,6 +673,28 @@ void loop() {
   uint32_t pk = blePasskey();
   if (pk && !lastPasskey) { wake(); beep(1800, 60); }
   lastPasskey = pk;
+
+  // Send evt:info once on every BLE connection edge (false → true). The
+  // bridge reads `version` to decide if an OTA is needed and `features`
+  // to gate which cmd:* it can safely send. xfer_v1 is the existing
+  // file-transfer protocol; ota_v1 will be added by step 4 once the
+  // device-side OTA state machine lands.
+  static bool _wasConnected = false;
+  bool nowConnected = bleConnected();
+  if (nowConnected && !_wasConnected) {
+    char info[160];
+    const char* board =
+#if defined(ARDUINO_M5STACK_Core2)
+      "m5stack-core2";
+#else
+      "m5stickc-plus";
+#endif
+    snprintf(info, sizeof(info),
+      "{\"evt\":\"info\",\"board\":\"%s\",\"version\":\"%s\",\"features\":[\"xfer_v1\"]}",
+      board, BUILD_VERSION);
+    sendCmd(info);
+  }
+  _wasConnected = nowConnected;
 
   if (napping || screenOff || landscapeClock || displayMode == DISP_INFO) {
     // skip sprite render — face-down, powered off, landscape clock (which

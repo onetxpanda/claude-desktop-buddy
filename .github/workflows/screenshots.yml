@@ -108,7 +108,12 @@ jobs:
           fi
 
       - name: Build firmware
-        run: pio run -e m5stickc-plus -e m5stack-core2
+        # CLAUDE_BUILD_VERSION baked into the binary via -D so the device
+        # can report what it's running over BLE (evt:info on connect).
+        # Format: branch@short-sha, e.g. "hal-refactor@a1b2c3d".
+        run: |
+          export PLATFORMIO_BUILD_FLAGS="-DCLAUDE_BUILD_VERSION=\\\"${GITHUB_REF_NAME}@${GITHUB_SHA::7}\\\""
+          pio run -e m5stickc-plus -e m5stack-core2
 
       - name: Stage firmware binaries + ESP Web Tools manifests
         run: |
