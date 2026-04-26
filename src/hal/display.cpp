@@ -7,18 +7,17 @@ namespace hal { namespace display {
 
 void begin() {
   M5.Display.setColorDepth(16);
+  _spr.setColorDepth(16);
   if (psramFound()) {
-    // Core2: 8bpp RGB332 in internal RAM. PSRAM-backed 16bpp sprites have DMA
-    // cache coherency issues with M5GFX's pushSprite on this board, and a
-    // 16bpp full-screen sprite (150 KB) doesn't fit alongside BLE in internal
-    // RAM. 8bpp at 320×240 = 76 KB fits comfortably. Skipping createPalette()
-    // keeps the canvas in RGB332 mode (R3-G3-B2 packed in 8 bits) so drawing
-    // with raw 16bpp colors quantizes directly to RGB332 — colorful and cheap,
-    // versus paletted mode which would require explicit index-based drawing.
-    _spr.setColorDepth(8);
-    _spr.setPsram(false);
-  } else {
-    _spr.setColorDepth(16);
+    // Core2: 16bpp full-color sprite (150 KB) lives in PSRAM. M5GFX's
+    // SpriteBuffer detects the allocation source and skips DMA on the
+    // pushSprite path for PSRAM-backed buffers (SpriteBuffer::use_dma()
+    // returns false), falling back to CPU-driven SPI. That avoids the
+    // PSRAM/DMA cache-coherency issue without manual cache management:
+    // CPU writes pixels through D-cache, CPU reads them back through
+    // D-cache — coherent. ~5 ms per push instead of ~1 ms for DMA, well
+    // within a 16 ms frame budget.
+    _spr.setPsram(true);
   }
   _spr.createSprite(M5.Display.width(), M5.Display.height());
 }
