@@ -1,0 +1,25 @@
+# Partition table for OTA-capable firmware (Phase C onward).
+# 4 MB flash, ESP32 classic. Used by both StickC Plus and Core2 envs in
+# platformio.ini via board_build.partitions.
+#
+# Layout — keep NVS at 0x9000 (compatible with the previous no_ota table)
+# so settings, BLE bonds, and stats survive every OTA flash after the
+# one-time migration:
+#
+#   nvs       0x9000   20 KB    settings, bonds, stats
+#   otadata   0xe000    8 KB    bootloader's "active slot" pointer
+#   app0      0x10000  1.25 MB  OTA slot A
+#   app1     0x150000  1.25 MB  OTA slot B
+#   spiffs   0x290000  1.4 MB   LittleFS (character GIFs)
+#
+# Both app slots are sized identically so either can host any image.
+# Pre-OTA-code measurement (2026-04-26): firmware uses 73-74% of a slot,
+# leaving ~345 KB of headroom for the OTA state machine + Update.h
+# dependencies that get added in steps 3-7.
+
+# Name,    Type, SubType, Offset,   Size
+nvs,       data, nvs,     0x9000,   0x5000
+otadata,   data, ota,     0xe000,   0x2000
+app0,      app,  ota_0,   0x10000,  0x140000
+app1,      app,  ota_1,   0x150000, 0x140000
+spiffs,    data, spiffs,  0x290000, 0x170000
