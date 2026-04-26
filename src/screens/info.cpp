@@ -9,7 +9,7 @@
 #include <stdarg.h>
 
 // Declared in main.cpp
-extern M5Canvas& canvas;
+extern M5GFX& canvas;
 extern const char* stateNames[];
 extern TamaState tama;
 extern char btName[16];
