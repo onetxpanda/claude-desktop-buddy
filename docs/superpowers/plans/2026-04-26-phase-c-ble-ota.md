@@ -72,17 +72,19 @@ Don't write the partition table file yet — first see whether the firmware as i
 
 ## Step 3 — Wire BUILD_VERSION end-to-end
 
-So the device knows what it's running and can report it.
+So the device knows what it's running and can report it. Sent as `ack:info` on connect, NOT a new `evt:` (would crash older bridges per the backward-compat rule).
 
 - [ ] Update `.github/workflows/screenshots.yml`'s "Build firmware" step to inject `-DBUILD_VERSION="\"${branch}@${sha}\""` (note the quoting — the C define needs a quoted string literal)
 - [ ] Add a header `src/version.h` with `extern const char* BUILD_VERSION;`
-- [ ] Add a small `src/version.cpp` that defines `const char* BUILD_VERSION = BUILD_VERSION_DEFINE` (using a fallback `"dev-local"` when the define is absent for local builds)
-- [ ] Reference `BUILD_VERSION` from `main.cpp` and add to a new `info` event sent on bleConnected (post-pairing)
-- [ ] Build both envs, confirm `BUILD_VERSION` resolves (ELF strings: `xtensa-esp32-elf-strings .pio/build/m5stack-core2/firmware.elf | grep BUILD_VERSION` prefix)
+- [ ] Add a small `src/version.cpp` that defines `const char* BUILD_VERSION = BUILD_VERSION_DEFINE` (using a fallback `"dev-local"` when the define is absent)
+- [ ] In `main.cpp`'s BLE-connected handler, send once: `{"ack":"info","ok":true,"data":{"board":"<env>","version":"<BUILD_VERSION>","features":["ota_v1","xfer_v1"]}}`. Board name comes from build-time `-DARDUINO_M5STACK_Core2` / `-DARDUINO_M5Stick_C` defines (existing in board JSONs).
+- [ ] Build both envs, confirm `BUILD_VERSION` resolves: `xtensa-esp32-elf-strings .pio/build/m5stack-core2/firmware.elf | grep -E '^[a-z-]+@[a-f0-9]{7}'`
 
 ---
 
 ## Step 4 — Device-side OTA state machine (happy path, no UI yet)
+
+**Backward-compat note**: per the spec, all device → bridge OTA notifications use the existing `ack:NAME` shape (not `evt:`) so older bridges parse them as generic `Ack`s and don't crash. All four `cmd:ota_*` are dispatched in `_applyJson` *before* `xferCommand(doc)` so older devices (without OTA) silently swallow them via xfer's catch-all.
 
 - [ ] Create `src/ota.h` with the public API:
   ```cpp
@@ -91,27 +93,31 @@ So the device knows what it's running and can report it.
     State state();
     size_t received(); size_t total();
     const char* error_msg();
-    // Called from ble_bridge.cpp's _applyJson when cmd starts with "ota_"
-    void handle_command(JsonDocument& doc);
-    // Called from main.cpp loop() when state != Idle, returns next event JSON to send
+    // Returns true if the cmd was an ota_* and was handled. Caller (in
+    // _applyJson) should short-circuit before xferCommand() if true.
+    bool handle_command(JsonDocument& doc);
+    // Called from main.cpp loop(); drains pending ack:ota_* messages.
     bool poll_event(char* out, size_t cap);
   }
   ```
 - [ ] Implement `src/ota.cpp` using `Update.h`. State transitions:
-  - `Idle` + `cmd:ota_begin` → call `Update.begin(size, U_FLASH)`. On success: store SHA, version, total; emit `evt:ota_ready`; transition to `Receiving`. On failure: emit `evt:ota_error` with code `init`.
-  - `Receiving` + `cmd:ota_data` (with expected `seq`): base64-decode `b64`, call `Update.write(buf, len)`, update running SHA; emit `evt:ota_ack` every 32 chunks and on the last chunk; emit `evt:ota_progress` every 64 chunks (rough 1% granularity).
-  - `Receiving` + `cmd:ota_data` (wrong `seq`): emit `evt:ota_error` with code `seq` and `Update.abort()`; state goes Error.
-  - `Receiving` + `cmd:ota_commit`: compare running SHA to expected; if mismatch, emit error and abort. If match, call `Update.end(true)` to set boot partition. Transition to `Committing`. Schedule `ESP.restart()` after a 200 ms grace period to let the final notify drain.
-  - Any state + `cmd:ota_abort` → `Update.abort()`, back to Idle.
-- [ ] Hook into `src/ble_bridge.cpp`: `_applyJson` switch arm for `cmd:ota_*` calls `ota::handle_command(doc)`.
-- [ ] Hook into `src/main.cpp` loop: drain `ota::poll_event` and send via `bleNotify`.
+  - `Idle` + `cmd:ota_begin` → call `Update.begin(size, U_FLASH)`. On success: store SHA, version, total; emit `ack:ota_begin {ok:true}`; transition to `Receiving`. On failure: emit `ack:ota_begin {ok:false, error:"..."}`.
+  - `Receiving` + `cmd:ota_data` (with expected `seq`): base64-decode `b64`, call `Update.write(buf, len)`, update running SHA. Emit `ack:ota_data {ok:true, n:seq}` every 32 chunks. Emit `ack:ota_progress {ok:true, n:pct}` every 64 chunks (rough 1% granularity).
+  - `Receiving` + `cmd:ota_data` (wrong `seq`): emit `ack:ota_data {ok:false, error:"seq mismatch", n:expected}` and `Update.abort()`; state goes Error.
+  - `Receiving` + `cmd:ota_commit`: compare running SHA to expected; if mismatch, emit `ack:ota_commit {ok:false, error:"sha mismatch"}` and abort. If match, call `Update.end(true)` to set boot partition; emit `ack:ota_commit {ok:true}`; schedule `ESP.restart()` after a 200 ms grace period to let the notify drain.
+  - Any state + `cmd:ota_abort` → `Update.abort()`, emit `ack:ota_abort {ok:true}`, back to Idle.
+- [ ] Hook into `src/ble_bridge.cpp` (or wherever `_applyJson` lives): call `ota::handle_command(doc)` BEFORE `xferCommand(doc)` and return early if it consumed.
+- [ ] Hook into `src/main.cpp` loop: drain `ota::poll_event` and send via the existing `bleWrite()` path.
 - [ ] Build both envs.
 
 ---
 
 ## Step 5 — Bridge-side `ota.py` (protocol layer)
 
-- [ ] Add OTA dataclasses to `bridge/src/claude_buddy_bridge/protocol.py` mirroring the device side: `OtaBegin`, `OtaData`, `OtaCommit`, `OtaReady`, `OtaAck`, `OtaProgress`, `OtaError`.
+**Backward-compat note**: device-side messages all arrive as `Ack(ack="ota_*", ok=..., n=..., error=..., data=...)` via the existing `decode_device_line` parser — no parser changes needed. The bridge only adds OTA-specific *interpretation* of those Ack messages.
+
+- [ ] Add OTA host-command dataclasses to `bridge/src/claude_buddy_bridge/protocol.py`: `OtaBegin`, `OtaData`, `OtaCommit`, `OtaAbort`. Each builds a `cmd:ota_*` line. No new device-side dataclasses needed — bridge dispatches on `Ack.ack` name in `ota.py`.
+- [ ] Add `Info` parser: when bridge receives `Ack(ack="info", ...)`, expose `data.version` / `data.board` / `data.features` to callers. Gate `claude-buddy update` on `"ota_v1" in features` — refuse with a clear error otherwise.
 - [ ] Implement `bridge/src/claude_buddy_bridge/ota.py`:
   ```python
   async def push_firmware(client: BleClient, image: bytes, version: str,
@@ -120,11 +126,11 @@ So the device knows what it's running and can report it.
   ```
   Algorithm:
   1. Compute SHA-256 of `image`.
-  2. Send `ota_begin`, await `ota_ready` (timeout 5 s).
+  2. Send `cmd:ota_begin`, await `ack:ota_begin {ok:true}` (timeout 5 s; raise on `ok:false`).
   3. Chunk image into MTU-sized base64 payloads (~120 binary bytes per chunk at MTU 185).
-  4. For each chunk: send `ota_data`. Every 32 chunks, await an `ota_ack` with matching `seq` (timeout 2 s; abort + raise on miss).
-  5. Send `ota_commit`. Await either `ota_progress(pct=100)` followed by disconnect (success — device rebooted) or `ota_error` (failure).
-- [ ] Add `bridge/tests/test_ota.py` with a fake `BleClient` that records writes and replays scripted responses. Cover happy path, ack timeout, mid-stream error, SHA mismatch.
+  4. For each chunk: send `cmd:ota_data`. Every 32 chunks, await `ack:ota_data {ok:true, n:seq}` with matching `n` (timeout 2 s; abort + raise on miss).
+  5. Send `cmd:ota_commit`. Await `ack:ota_commit {ok:true}` followed by disconnect (success — device rebooted) or `ack:ota_commit {ok:false, error:...}` (failure → raise).
+- [ ] Add `bridge/tests/test_ota.py` with a fake `BleClient` that records writes and replays scripted responses. Cover happy path, begin failure, mid-stream chunk error, SHA mismatch at commit, missing `ota_v1` feature.
 
 ---
 
@@ -199,6 +205,8 @@ So the device knows what it's running and can report it.
 - [ ] `pio run -e m5stickc-plus -e m5stack-core2` — both build clean
 - [ ] `cd bridge && pixi run pytest` — all green
 - [ ] CI workflow passes (firmware build + bridge tests + screenshots all happy)
-- [ ] Manual end-to-end test: paired device + `claude-buddy update --file .pio/build/m5stack-core2/firmware.bin` → progress visible on device + CLI → reboot → new version reported in heartbeat
+- [ ] **Backward-compat check**: bridge running an OLD `protocol.py` (pre-Phase-C) connecting to NEW firmware does NOT raise on the `ack:info`/`ack:ota_*` messages — they parse as generic `Ack` and get logged but don't crash. Test by `git stash`-ing protocol.py changes, reconnecting, watching the daemon log.
+- [ ] **Backward-compat check (other direction)**: NEW bridge sending `cmd:ota_*` to OLD firmware doesn't break it — old firmware's xferCommand catch-all swallows the unknowns; device stays responsive on its existing cmds. Test by checking out hal-refactor's firmware, flashing, then trying `claude-buddy update` (should refuse via missing `ota_v1` feature, not crash anything).
+- [ ] Manual end-to-end test: paired device + `claude-buddy update --file .pio/build/m5stack-core2/firmware.bin` → progress visible on device + CLI → reboot → new version reported in `ack:info`
 - [ ] Manual rollback test: build with `abort()` injected early in setup, OTA-flash, confirm device reverts to previous slot after crash
 - [ ] Greps confirm no remaining `no_ota.csv` references; `Update.h` is included only from `src/ota.cpp`
