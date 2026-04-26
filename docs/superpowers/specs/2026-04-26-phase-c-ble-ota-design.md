@@ -39,30 +39,20 @@ Trade-offs (already discussed in chat — preserved here as the design baseline)
 
 Both StickC Plus (also 4 MB) and Core2 (16 MB) use the same 4 MB layout — Core2's extra 12 MB stays unused for now, but the layout could grow if we ever want larger app slots or a bigger filesystem on Core2 specifically.
 
-### Backward compatibility constraints (must read before designing additions)
+### Existing protocol vocabulary (avoid collisions, don't repurpose)
 
-The wire protocol is shared with the upstream `anthropics/claude-desktop-buddy` desktop GUI. A device running our firmware must stay usable from the upstream desktop, and a device running upstream firmware must stay usable from our bridge. Concretely:
-
-**Existing vocabulary on hal-refactor** (`xfer.h`, `data.h`, `bridge/src/claude_buddy_bridge/protocol.py`):
+Just so additions don't accidentally shadow existing names:
 
 - **bridge → device `cmd:`** — `name`, `species`, `unpair`, `owner`, `status`, `char_begin`, `file`, `chunk`, `file_end`, `char_end`. All dispatched by `xferCommand()` in `xfer.h`.
-- **bridge → device `evt:`** — `turn` only. Fire-and-forget.
-- **bridge → device top-level fields** — heartbeat (`total`/`running`/`waiting`/`prompt`/...) and `time` array.
-- **device → bridge `cmd:`** — `permission` only (with `id` + `decision: once|deny`).
-- **device → bridge `ack:`** — `ack:NAME` shape with `ok:bool, n:int?, error:str?, data:dict?`. Used by `xfer.h` for file-transfer acknowledgments. **Bridge accepts any `ack` string name** (`bridge/.../protocol.py:151-164`), unknown ack names just fall through to a generic `Ack` dataclass.
+- **bridge → device `evt:`** — `turn` only.
+- **device → bridge `cmd:`** — `permission` only.
+- **device → bridge `ack:NAME`** with `ok:bool, n:int?, error:str?, data:dict?` — used by `xfer.h` for file-transfer acknowledgments.
 
-**Critical**: the bridge's `decode_device_line` (`protocol.py:147`) raises `ProtocolError` on any device message shape it doesn't recognize — unknown `cmd:`, unknown top-level keys, anything not `cmd:permission` / `ack:*`. So new device → bridge messages **cannot use a new `evt:` namespace** without breaking older bridges (ours and upstream). The `ack:` shape is the safe extension point.
-
-**Conversely**: the device's `xferCommand` catch-all (`xfer.h:189`) silently swallows unknown `cmd:` values when not in xfer mode, so new `cmd:ota_*` from a newer bridge are no-ops on an older device — no crash.
-
-**The two rules this implies**:
-
-1. **Device → bridge: new messages MUST use `ack:NAME`**, never `evt:` or a new top-level shape. Older bridges accept it as a generic `Ack`; newer bridges add specific handling.
-2. **Bridge → device: new `cmd:` values MUST be handled before `xferCommand`'s catch-all** so newer firmware actually processes them, while older firmware ignores. Add OTA dispatch in `_applyJson` ahead of `xferCommand(doc)`.
+OTA picks fresh names that don't collide with any of those. Device-side dispatch needs to handle `cmd:ota_*` BEFORE `xferCommand()` is called, so xfer's catch-all doesn't silently consume them.
 
 ### BLE protocol additions
 
-OTA layers on top of the existing NUS UART link — no new GATT services. Four new `cmd:` values from bridge → device; all device → bridge notifications use the existing `ack:NAME` shape.
+OTA layers on top of the existing NUS UART link — no new GATT services.
 
 **bridge → device:**
 
@@ -73,24 +63,30 @@ OTA layers on top of the existing NUS UART link — no new GATT services. Four n
 {"cmd":"ota_abort"}
 ```
 
-- `ota_begin` carries total firmware size, expected SHA-256, and a free-form version string. Device responds `ack:ota_begin` (`ok:true` if `Update.begin(size)` succeeded, `ok:false` with `error` otherwise).
+- `ota_begin` carries total firmware size, expected SHA-256, and a free-form version string. Device responds with `evt:ota_ready` if `Update.begin(size)` succeeded, `evt:ota_error` otherwise.
 - `ota_data` carries one chunk. `seq` is monotonic from 0; `b64` is the base64-encoded chunk. Size chunks to the negotiated MTU minus JSON+base64 overhead — at the typical macOS MTU of 185, ~120 bytes of binary payload per chunk. ~9000 chunks for a 1.1 MB image, ~6 ms per chunk = ~55 s end-to-end. Device acks every Nth chunk (configurable; default 32).
-- `ota_commit` triggers SHA verify, `Update.end(true)`, `esp_ota_set_boot_partition`, then a 200 ms grace period before `ESP.restart()` so the final ack drains.
+- `ota_commit` triggers SHA verify, `Update.end(true)`, `esp_ota_set_boot_partition`, then a 200 ms grace period before `ESP.restart()` so the final notify drains.
 - `ota_abort` calls `Update.abort()` and returns the device to idle. Useful if the bridge process dies mid-upload and reconnects; the user can also abort from the device's power button.
 
-**device → bridge** (all `ack:`, all silent on older bridges):
+**device → bridge:**
 
 ```json
-{"ack":"ota_begin","ok":true}
-{"ack":"ota_data","ok":true,"n":127}                    // n = highest seq committed to flash
-{"ack":"ota_progress","ok":true,"n":42}                 // n = percent (0-100); also for the bridge UI
-{"ack":"ota_commit","ok":true}                          // sent right before reboot; bridge expects disconnect
-{"ack":"ota_error","ok":false,"error":"sha mismatch at chunk 8642"}
+{"evt":"ota_ready"}
+{"evt":"ota_ack","seq":127}                             // seq = highest committed to flash
+{"evt":"ota_progress","pct":42}                         // for the bridge UI; device also draws on screen
+{"evt":"ota_committed"}                                 // sent right before reboot; bridge expects disconnect
+{"evt":"ota_error","msg":"sha mismatch at chunk 8642"}
 ```
 
 `ota_progress` doubles as a keepalive — if the bridge sends data without seeing progress for ~3 s it should pause and re-sync.
 
 We deliberately keep base64 in JSON rather than introducing a binary OTA characteristic. That trades ~33% throughput for sticking with a single transport and the existing NimBLE characteristic config (encryption-required, MITM-paired). At ~55 s for a full image, the throughput is acceptable; the user is sitting in front of the device watching a progress bar.
+
+### Bridge parser relaxation
+
+The bridge's current `decode_device_line` (`bridge/src/claude_buddy_bridge/protocol.py:147`) raises `ProtocolError` on any unrecognized device-side message — including new `evt:` shapes. Relax it to log + skip unknown shapes instead, so adding new device → bridge messages stops being a coordinated protocol-version bump. Old bridge code with new firmware emits some debug log lines but keeps working.
+
+Single behavioral change in `decode_device_line`: replace the final `raise ProtocolError(f"unrecognized device message: {obj}")` with a log + return-None, and update callers to handle None as "skip this line." Add a regression test that asserts an unknown-evt line doesn't raise.
 
 ### Device-side state machine
 
@@ -163,13 +159,13 @@ build_flags:
 extern const char* BUILD_VERSION;  // baked at build, format: "branch@sha7"
 ```
 
-Sent once on bleConnected as an `ack:info` (per the backward-compat rule — `evt:` would crash older bridges):
+Sent once on bleConnected:
 
 ```json
-{"ack":"info","ok":true,"data":{"board":"m5stack-core2","version":"hal-refactor@a1b2c3d","features":["ota_v1","xfer_v1"]}}
+{"evt":"info","board":"m5stack-core2","version":"hal-refactor@a1b2c3d","features":["ota_v1","xfer_v1"]}
 ```
 
-Older bridges parse it as a generic `Ack` and ignore the `data`. Newer bridges read `data.version` to decide whether an OTA is needed and `data.features` to gate which commands are safe to send (`ota_v1` present → `cmd:ota_*` is supported).
+Bridge reads `version` to decide whether an OTA is needed and `features` to gate which commands are safe to send (`ota_v1` present → `cmd:ota_*` is supported). Without the gate the bridge would silently no-op on old firmware and the user would have no idea why "update" did nothing.
 
 ## Files touched
 
@@ -200,7 +196,7 @@ Older bridges parse it as a generic `Ack` and ignore the `data`. Newer bridges r
   2. Drop unused M5GFX font subsets via `-DLGFX_USE_FONT_*=0` flags only as a fallback — Montserrat + Japanese + Korean + Chinese eat ~150 KB combined, but losing them would hurt future internationalization.
 - **BLE throughput regressions.** The macOS MTU of 185 is best-case. If the negotiated MTU drops to 23 (default), chunks become tiny and a 1 MB image takes 5+ minutes. Mitigation: device sends `ota_error` with `code:"slow"` if MTU < 100 at `ota_begin`, bridge falls back to USB instructions.
 - **Power loss mid-update.** `Update.h` writes are not atomic per chunk, but they ARE crash-safe per slot — the otadata partition only flips after `Update.end(true)`. Power loss before commit = boot to existing slot, no harm. Power loss after commit but before reboot also boots to new slot (already committed). The only ugly case is power loss DURING the `esp_ota_set_boot_partition` write itself, which is a few-ms window; CLAUDE.md doesn't say anything about RTC backup, so this is a "very rare, manual recovery via USB" scenario.
-- **Bridge ↔ device version skew.** Backward-compat rules above keep both directions safe: an old device receiving `cmd:ota_*` swallows it via `xferCommand`'s catch-all; an old bridge receiving `ack:ota_*` parses it as a generic `Ack` and ignores. The `features` array in `ack:info` is the explicit gate — the bridge only sends `cmd:ota_*` if `"ota_v1" in features`. Without that, we'd silently no-op on old firmware and the user would never know why "update" did nothing.
+- **Bridge ↔ device version skew.** Two safety nets: (a) old device receiving `cmd:ota_*` from a new bridge silently swallows it via `xferCommand`'s catch-all — no crash, but no flash either. (b) New bridge gates `cmd:ota_*` on `"ota_v1" in features` from the device's `evt:info` — refuses with a clear error if the firmware doesn't advertise OTA support. The bridge parser relaxation (above) protects the other direction: old bridge + new firmware emitting `evt:ota_*` doesn't crash the bridge.
 - **Image signing.** Out of scope for this phase. The pairing already authenticates the bridge as a trusted peer via MITM, and the SHA in `ota_begin` rules out transport corruption. A motivated attacker who's already paired could push a malicious image — but they could also just flash via USB if they have physical access, so pairing-as-authentication is the right level for a hobby device. Worth revisiting if/when the device gains Wi-Fi.
 
 ## Why a submodule for the bridge
