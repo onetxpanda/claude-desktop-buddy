@@ -28,33 +28,44 @@ int  width()                 { return M5.Display.width(); }
 int  height()                { return M5.Display.height(); }
 void setRotation(uint8_t r)  { M5.Display.setRotation(r); }
 
-#if !defined(NATIVE_BUILD)
-// ROM symbol — present on every ESP32 chip variant, no IDF version
-// dependency. Same declaration M5GFX uses in Panel_FrameBufferBase.cpp:32
-// and Panel_EPD.cpp:49 for exactly this scenario.
-extern "C" int Cache_WriteBack_Addr(uint32_t addr, uint32_t size);
-#endif
-
-// PSRAM + DMA cache coherency: heap_caps_malloc(..., MALLOC_CAP_SPIRAM)
-// returns a PSRAM address. CPU writes pixels through the D-cache; DMA
-// reads PSRAM directly, bypassing cache, so it streams stale bytes to
-// the LCD → white/green line garbage. Flush the dirty cache lines back
-// to PSRAM before the push and DMA sees the latest pixels.
+// Push the PSRAM-backed sprite to the LCD without tripping the PSRAM/DMA
+// cache-coherency hole on ESP32 classic.
 //
-// M5GFX would do this for us if heap_capable_dma() reported PSRAM as
-// non-DMA-capable, but esp_ptr_dma_capable() returns true for PSRAM on
-// ESP32 classic (the chip's MMU IS technically DMA-capable from PSRAM,
-// the coherency hole is a separate problem). Same path M5GFX uses for
-// its FrameBuffer-backed panels — 32-byte aligned address & size,
-// guaranteed by heap_caps_malloc with MALLOC_CAP_SPIRAM.
+// Background: heap_caps_malloc(..., MALLOC_CAP_SPIRAM) returns a PSRAM
+// address. CPU draws into it through the D-cache. M5GFX's pushSprite ends
+// up at Bus_SPI::writeBytes(use_dma=true) — DMA reads PSRAM directly,
+// bypassing the cache the CPU just wrote into, so the DMA engine streams
+// stale bytes to the panel and the user sees the white/green line
+// garbage. Cache_WriteBack_Addr would patch this in one ROM call, but
+// that symbol isn't exposed in arduino-esp32 v2 + ESP32 classic — M5GFX
+// itself only defines the shim for IDF 5.x or ESP32-S3 in
+// Panel_FrameBufferBase.cpp:25-49.
+//
+// Workaround that doesn't depend on the unavailable ROM symbol: stage
+// each scanline through a 640-byte internal-RAM scratch buffer. CPU
+// memcpy from PSRAM goes through the D-cache (coherent — picks up the
+// freshly-written pixels), and the subsequent writePixelsDMA reads from
+// internal RAM, which IS DMA-coherent. Cost: 240 SPI transactions per
+// frame instead of 1, but the panel's internal address-window auto-
+// increment keeps each transaction tight (just the pixel data, no
+// per-row column commands).
 void push() {
-#if !defined(NATIVE_BUILD)
-  if (psramFound()) {
-    Cache_WriteBack_Addr((uint32_t)_spr.getBuffer(),
-                         (uint32_t)(_spr.width() * _spr.height() * sizeof(uint16_t)));
+  const int w = _spr.width();
+  const int h = _spr.height();
+  // Internal-RAM scratch — sized to the larger of the two boards (Core2
+  // 320). At sizeof(uint16_t)*320 = 640 B, trivially fits in DRAM.
+  static uint16_t scanline[320];
+  const uint16_t* src = (const uint16_t*)_spr.getBuffer();
+
+  M5.Display.startWrite();
+  M5.Display.setAddrWindow(0, 0, w, h);
+  for (int y = 0; y < h; ++y) {
+    // CPU read of PSRAM goes through D-cache → sees the latest pixels.
+    // Then DMA reads scanline[] which is in DMA-coherent internal RAM.
+    memcpy(scanline, src + (size_t)y * w, w * sizeof(uint16_t));
+    M5.Display.writePixelsDMA(scanline, w);
   }
-#endif
-  _spr.pushSprite(&M5.Display, 0, 0);
+  M5.Display.endWrite();
 }
 
 bool isLarge()               { return M5.Display.width() >= 320; }
