@@ -18,7 +18,6 @@ on:
       - 'support/native/**'
       - 'docs/**'
       - 'bridge/**'
-      - '.gitmodules'
       - '.github/workflows/screenshots.yml'
   workflow_dispatch:
 
@@ -34,15 +33,13 @@ concurrency:
 
 jobs:
   bridge:
-    # Runs the bridge submodule's pytest suite. Keeps the OTA / NUS protocol
-    # contract honest as both ends evolve — if the device adds a new cmd or
-    # evt shape and bridge's protocol.py doesn't follow, this job fails first.
-    # Runs in parallel with the firmware build below.
+    # Runs the bridge's pytest suite. Keeps the OTA / NUS protocol
+    # contract honest as both ends evolve — if the device adds a new cmd
+    # or evt shape and bridge's protocol.py doesn't follow, this job
+    # fails first. Runs in parallel with the firmware build below.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install pixi
         uses: prefix-dev/setup-pixi@v0.8.1

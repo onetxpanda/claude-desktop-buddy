@@ -1,0 +1,13 @@
+.pixi/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.pyc
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+plans/
