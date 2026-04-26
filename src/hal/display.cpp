@@ -28,20 +28,33 @@ int  width()                 { return M5.Display.width(); }
 int  height()                { return M5.Display.height(); }
 void setRotation(uint8_t r)  { M5.Display.setRotation(r); }
 
-// Bypass _spr.pushSprite() because it routes through SpriteBuffer::use_dma(),
-// which is `_source == Dma || heap_capable_dma(_buffer)`. heap_capable_dma()
-// calls esp_ptr_dma_capable() — and on ESP32 classic that returns *true* for
-// PSRAM, since PSRAM is DMA-capable at the silicon level. But PSRAM+DMA has
-// a cache-coherency hole: DMA reads PSRAM directly, bypassing the D-cache the
-// CPU just wrote pixels through, so DMA sees stale lines → the famous
-// white/green garbage. M5GFX's "DMA disable with use SPIRAM" comment isn't
-// actually what the code does for ESP32. Calling pushImage directly with the
-// raw buffer dispatches to the non-DMA push (pushImage's use_dma defaults to
-// false), so pixels go out via CPU-driven SPI: same CPU just wrote them
-// through cache, reads them back through cache — coherent.
+#if !defined(NATIVE_BUILD)
+// ROM symbol — present on every ESP32 chip variant, no IDF version
+// dependency. Same declaration M5GFX uses in Panel_FrameBufferBase.cpp:32
+// and Panel_EPD.cpp:49 for exactly this scenario.
+extern "C" int Cache_WriteBack_Addr(uint32_t addr, uint32_t size);
+#endif
+
+// PSRAM + DMA cache coherency: heap_caps_malloc(..., MALLOC_CAP_SPIRAM)
+// returns a PSRAM address. CPU writes pixels through the D-cache; DMA
+// reads PSRAM directly, bypassing cache, so it streams stale bytes to
+// the LCD → white/green line garbage. Flush the dirty cache lines back
+// to PSRAM before the push and DMA sees the latest pixels.
+//
+// M5GFX would do this for us if heap_capable_dma() reported PSRAM as
+// non-DMA-capable, but esp_ptr_dma_capable() returns true for PSRAM on
+// ESP32 classic (the chip's MMU IS technically DMA-capable from PSRAM,
+// the coherency hole is a separate problem). Same path M5GFX uses for
+// its FrameBuffer-backed panels — 32-byte aligned address & size,
+// guaranteed by heap_caps_malloc with MALLOC_CAP_SPIRAM.
 void push() {
-  M5.Display.pushImage(0, 0, _spr.width(), _spr.height(),
-                       (const uint16_t*)_spr.getBuffer());
+#if !defined(NATIVE_BUILD)
+  if (psramFound()) {
+    Cache_WriteBack_Addr((uint32_t)_spr.getBuffer(),
+                         (uint32_t)(_spr.width() * _spr.height() * sizeof(uint16_t)));
+  }
+#endif
+  _spr.pushSprite(&M5.Display, 0, 0);
 }
 
 bool isLarge()               { return M5.Display.width() >= 320; }
