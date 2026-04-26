@@ -119,7 +119,7 @@ Three new things in `bridge/src/claude_buddy_bridge/`:
 3. CLI surface in `cli.py`:
    - `claude-buddy update` — one-shot manual update from the latest release.
    - `claude-buddy update --file path/to/firmware.bin --version dev-build` — push a local binary (for development).
-   - Daemon config `auto_update: true|false|prompt` — default `prompt`, which posts a system notification and waits for confirmation.
+   - Daemon config `auto_update: prompt|auto|off` — **default `prompt`**, which posts a system notification and waits for confirmation. `off` is the developer-friendly setting (no surprise reboots while iterating); `auto` is for unattended deployments.
 
 The download fetches the **board-specific** asset from the release: `m5stickc-plus-firmware.bin` or `m5stack-core2-firmware.bin`. The device tells the bridge which board it is via the existing `info` heartbeat field (we already have `btName` and MAC; add `board: "m5stickc-plus" | "m5stack-core2"` derived at build time from `ARDUINO_M5STACK_Core2` etc.). The bridge picks the matching asset; mismatched assets fail at the SHA check before any flash happens.
 
@@ -165,7 +165,9 @@ Heartbeat (or a new `info` event sent on connect) carries this: `{"evt":"info","
 
 ## Risks worth calling out
 
-- **App-slot fit at 1.25 MB.** Need to actually run `pio run -e m5stack-core2 -v | grep -E "Flash|RAM"` after flipping the partition table and confirm. If we're tight, the easy lever is dropping unused M5GFX font subsets via `-DLGFX_USE_FONT_*=0` flags — Montserrat + Japanese + Korean + Chinese eat ~150 KB combined.
+- **App-slot fit at 1.25 MB.** Need to actually run `pio run -e m5stack-core2 -v | grep -E "Flash|RAM"` after flipping the partition table and confirm. If the app overflows, the recovery order is:
+  1. **Shrink LittleFS first** (1.4 MB → 0.9 MB or whatever's needed) — gives both app slots more room without touching code. Character GIFs are the only LittleFS consumer; 0.9 MB still holds 4-9 typical (50-200 KB) GIFs.
+  2. Drop unused M5GFX font subsets via `-DLGFX_USE_FONT_*=0` flags only as a fallback — Montserrat + Japanese + Korean + Chinese eat ~150 KB combined, but losing them would hurt future internationalization.
 - **BLE throughput regressions.** The macOS MTU of 185 is best-case. If the negotiated MTU drops to 23 (default), chunks become tiny and a 1 MB image takes 5+ minutes. Mitigation: device sends `ota_error` with `code:"slow"` if MTU < 100 at `ota_begin`, bridge falls back to USB instructions.
 - **Power loss mid-update.** `Update.h` writes are not atomic per chunk, but they ARE crash-safe per slot — the otadata partition only flips after `Update.end(true)`. Power loss before commit = boot to existing slot, no harm. Power loss after commit but before reboot also boots to new slot (already committed). The only ugly case is power loss DURING the `esp_ota_set_boot_partition` write itself, which is a few-ms window; CLAUDE.md doesn't say anything about RTC backup, so this is a "very rare, manual recovery via USB" scenario.
 - **Bridge ↔ device version skew.** If the bridge sends a brand-new protocol command to an old firmware, the firmware's `_applyJson` either logs unknown-cmd and ignores (current behavior) or crashes. Add a feature-version field to the info event (`features: ["ota_v1"]`) and have the bridge gate `update` on it.
@@ -174,6 +176,8 @@ Heartbeat (or a new `info` event sent on connect) carries this: `{"evt":"info","
 ## Why a submodule for the bridge
 
 The OTA work lives in two repos by necessity (Python on host, C++ on device). The submodule lets one PR / one CI workflow / one branch change both ends in lock-step during the protocol-design phase, while preserving independent release cycles afterward (the bridge ships to PyPI, the firmware ships to GitHub Releases). The submodule pin is just a commit reference — bumping it is a one-line PR.
+
+CI grows a parallel `bridge` job that runs `pixi install && pixi run pytest` against the submodule's pinned commit on every push. That keeps the protocol contract honest — if the device side adds a new `cmd` or `evt` shape and the bridge's `protocol.py` doesn't match, the bridge tests catch it before either ships. The job uses `actions/checkout@v4` with `submodules: recursive`.
 
 If at any point the bridge feels like its own project again, `git submodule deinit` cleanly detaches it and the standalone repo carries on. Low cost in either direction.
 

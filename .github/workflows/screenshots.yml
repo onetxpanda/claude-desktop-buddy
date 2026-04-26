@@ -17,6 +17,8 @@ on:
       - 'platformio.ini'
       - 'support/native/**'
       - 'docs/**'
+      - 'bridge/**'
+      - '.gitmodules'
       - '.github/workflows/screenshots.yml'
   workflow_dispatch:
 
@@ -31,6 +33,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  bridge:
+    # Runs the bridge submodule's pytest suite. Keeps the OTA / NUS protocol
+    # contract honest as both ends evolve — if the device adds a new cmd or
+    # evt shape and bridge's protocol.py doesn't follow, this job fails first.
+    # Runs in parallel with the firmware build below.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: latest
+          manifest-path: bridge/pixi.toml
+          cache: true
+
+      - name: pytest
+        run: cd bridge && pixi run pytest -q
+
   build:
     runs-on: ubuntu-24.04
     steps:
@@ -191,7 +214,10 @@ jobs:
             _release/m5stack-core2-manifest.json
 
   deploy-pages:
-    needs: build
+    # Pages deploy waits on both jobs — bridge tests must pass before we
+    # publish a site that documents/distributes a firmware that may have
+    # broken the protocol contract.
+    needs: [build, bridge]
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
