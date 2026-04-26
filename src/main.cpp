@@ -673,9 +673,10 @@ void loop() {
   if (pk && !lastPasskey) { wake(); beep(1800, 60); }
   lastPasskey = pk;
 
-  if (napping || screenOff || landscapeClock) {
-    // skip sprite render — face-down, powered off, or landscape clock
-    // (which draws direct-to-LCD below)
+  if (napping || screenOff || landscapeClock || displayMode == DISP_INFO) {
+    // skip sprite render — face-down, powered off, landscape clock (which
+    // draws direct-to-LCD below), or info mode (which paints the whole
+    // screen itself, no buddy header).
   } else if (buddyMode) {
     buddyTick(activeState);
   } else if (characterLoaded()) {

@@ -111,10 +111,29 @@ void bleInit(const char* deviceName) {
   svc->start();
 
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-  adv->addServiceUUID(NUS_SERVICE_UUID);
-  adv->setName(deviceName);
-  adv->start();
-  Serial.printf("[ble] advertising as '%s'\n", deviceName);
+
+  // Split advertising data and scan response explicitly. The 128-bit NUS
+  // UUID (16+2 = 18 bytes after AD overhead) plus flags (3 bytes) plus the
+  // 11-char "Claude-XXXX" complete name (13 bytes) totals 34 bytes — over
+  // the 31-byte BLE adv limit. If we let NimBLE's auto-builder pack it all
+  // into adv data, it sets the shortened-name flag (0x08) and truncates,
+  // which made Claude Desktop's "Claude-*" name filter miss the device.
+  // Putting only flags + UUID in the adv packet (~21 bytes) and the full
+  // name in the scan response packet keeps both intact and discoverable.
+  NimBLEAdvertisementData advData;
+  advData.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+  advData.setCompleteServices(NimBLEUUID(NUS_SERVICE_UUID));
+  adv->setAdvertisementData(advData);
+
+  NimBLEAdvertisementData scanData;
+  scanData.setName(deviceName);
+  adv->setScanResponseData(scanData);
+
+  if (!adv->start()) {
+    Serial.println("[ble] advertising failed to start");
+  } else {
+    Serial.printf("[ble] advertising as '%s' (scan-response name)\n", deviceName);
+  }
 }
 
 bool bleConnected() { return connected; }
