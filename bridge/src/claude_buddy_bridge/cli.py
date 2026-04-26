@@ -74,6 +74,20 @@ def _cmd_status(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_update(args: argparse.Namespace) -> int:
+    from .update import run_update
+
+    return asyncio.run(
+        run_update(
+            file_path=Path(args.file),
+            version=args.version,
+            require_feature=not args.no_feature_check,
+            connect_timeout_s=args.connect_timeout,
+            info_timeout_s=args.info_timeout,
+        )
+    )
+
+
 def _cmd_doctor(_args: argparse.Namespace) -> int:
     ok = True
 
@@ -145,6 +159,36 @@ def build_parser() -> argparse.ArgumentParser:
         help="command and args to run (e.g. `claude -p some-prompt`)",
     )
 
+    update_p = sub.add_parser(
+        "update",
+        help="Push a firmware image to a paired device over BLE",
+    )
+    update_p.add_argument(
+        "--file", required=True, help="Path to firmware.bin to push"
+    )
+    update_p.add_argument(
+        "--version",
+        default=None,
+        help="Version label sent with cmd:ota_begin (defaults to filename)",
+    )
+    update_p.add_argument(
+        "--no-feature-check",
+        action="store_true",
+        help="Skip the evt:info ota_v1 feature gate (use only for development)",
+    )
+    update_p.add_argument(
+        "--connect-timeout",
+        type=float,
+        default=30.0,
+        help="Seconds to wait for the device to connect (default 30)",
+    )
+    update_p.add_argument(
+        "--info-timeout",
+        type=float,
+        default=5.0,
+        help="Seconds to wait for evt:info after connect (default 5)",
+    )
+
     return p
 
 
@@ -155,6 +199,7 @@ DISPATCH = {
     "status": _cmd_status,
     "doctor": _cmd_doctor,
     "run": _cmd_run,
+    "update": _cmd_update,
 }
 
 
