@@ -20,4 +20,14 @@ namespace hal { namespace display {
   void setRotation(uint8_t r);
   void push();
   bool isLarge();                  // true when display width ≥ 320 (Core2-class)
+
+  // Frame-redraw gate. With direct-to-LCD drawing (no off-screen sprite
+  // we can atomically push), every fillScreen+redraw cycle is visible —
+  // calling the screen draw functions every loop iteration produces a
+  // strobe-rate flicker. markDirty() requests a redraw on the next loop
+  // pass; consumeDirty() returns + clears the flag. The render block in
+  // main.cpp gates on consumeDirty(), so static screens don't repaint
+  // unless something actually changed.
+  void markDirty();
+  bool consumeDirty();
 }}

@@ -163,7 +163,7 @@ void buddyNextSpecies() {
 // also need a redraw even mid-tick so transitions appear instantly.
 static uint8_t lastDrawnState = 0xFF;
 static uint8_t lastDrawnSpecies = 0xFF;
-void buddyInvalidate() { lastDrawnState = 0xFF; }
+void buddyInvalidate() { lastDrawnState = 0xFF; hal::display::markDirty(); }
 
 void buddySetPeek(bool peek) {
   uint8_t s = peek ? 1 : 2;

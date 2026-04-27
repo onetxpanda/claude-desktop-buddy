@@ -284,6 +284,7 @@ void characterClose() {
 }
 
 void characterInvalidate() {
+  hal::display::markDirty();
   if (!loaded) return;
   if (textMode) {
     canvas.fillScreen(pal.bg);

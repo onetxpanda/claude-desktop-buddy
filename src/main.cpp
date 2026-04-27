@@ -149,6 +149,7 @@ void applyDisplayMode() {
   // clear is cheap and guarantees no leftovers between modes.
   canvas.fillScreen(0x0000);
   characterInvalidate();  // redraws character on next tick (text mode path)
+  hal::display::markDirty();
 }
 
 bool    settingsOpen = false;
@@ -552,6 +553,7 @@ void loop() {
     strncpy(lastPromptId, tama.promptId, sizeof(lastPromptId)-1);
     lastPromptId[sizeof(lastPromptId)-1] = 0;
     responseSent = false;
+    hal::display::markDirty();
     if (tama.promptId[0]) {
       promptArrivedMs = millis();
       wake();
@@ -571,6 +573,11 @@ void loop() {
   // route to the active screen's handleButton first, then fall back to global
   // actions. The wake/swallow logic lives inside pollInput.
   pollInput([&](Btn b, BtnEvent e) {
+    // Any button event almost certainly changes something visible
+    // (selection, modal open/close, mode cycle, screen wake, etc).
+    // Cheaper to invalidate unconditionally than to track every path.
+    hal::display::markDirty();
+
     bool consumed = false;
 
     // Route to active screen
@@ -672,7 +679,7 @@ void loop() {
 
   static uint32_t lastPasskey = 0;
   uint32_t pk = blePasskey();
-  if (pk && !lastPasskey) { wake(); beep(1800, 60); }
+  if (pk && !lastPasskey) { wake(); beep(1800, 60); hal::display::markDirty(); }
   lastPasskey = pk;
 
   // Send evt:info once on every BLE connection edge (false → true). The
@@ -682,6 +689,7 @@ void loop() {
   // device-side OTA state machine lands.
   static bool _wasConnected = false;
   bool nowConnected = bleConnected();
+  if (nowConnected != _wasConnected) hal::display::markDirty();
   if (nowConnected && !_wasConnected) {
     char info[160];
     const char* board =
@@ -703,6 +711,7 @@ void loop() {
   char ota_evt[160];
   while (ota::poll_event(ota_evt, sizeof(ota_evt))) {
     sendCmd(ota_evt);
+    hal::display::markDirty();
   }
   ota::tick();
 
@@ -737,21 +746,31 @@ void loop() {
       canvas.print("no character loaded");
     }
   }
-  if (landscapeClock) {
-    screen::clock::draw(clockOrient, _clkTm, _clkDt);
-  } else if (!napping && !screenOff) {
-    if (blePasskey()) screen::passkey::draw();
-    else if (clocking) screen::clock::draw(clockOrient, _clkTm, _clkDt);
-    else if (displayMode == DISP_INFO) screen::info::draw();
-    else if (displayMode == DISP_PET) screen::petstats::draw();
-    else if (settings().hud) {
-      if (tama.promptId[0]) screen::approval::draw();
-      else                  screen::hud::draw();
+  // Screen redraw is gated on hal::display::consumeDirty(). Without an
+  // off-screen sprite to push atomically, calling each screen's draw()
+  // every loop iteration produces visible flicker (fillScreen → redraw
+  // is briefly visible on the LCD). Static screens (passkey, info,
+  // settings, menu, reset) only need to repaint when something they
+  // show actually changes; markDirty() is called from input handlers,
+  // mode switches, prompt arrival, BLE state changes, ota events, and
+  // character/buddy invalidation paths.
+  if (hal::display::consumeDirty()) {
+    if (landscapeClock) {
+      screen::clock::draw(clockOrient, _clkTm, _clkDt);
+    } else if (!napping && !screenOff) {
+      if (blePasskey()) screen::passkey::draw();
+      else if (clocking) screen::clock::draw(clockOrient, _clkTm, _clkDt);
+      else if (displayMode == DISP_INFO) screen::info::draw();
+      else if (displayMode == DISP_PET) screen::petstats::draw();
+      else if (settings().hud) {
+        if (tama.promptId[0]) screen::approval::draw();
+        else                  screen::hud::draw();
+      }
+      if (resetOpen) screen::reset::draw();
+      else if (settingsOpen) screen::settings::draw();
+      else if (menuOpen) screen::menu::draw();
+      hal::display::push();
     }
-    if (resetOpen) screen::reset::draw();
-    else if (settingsOpen) screen::settings::draw();
-    else if (menuOpen) screen::menu::draw();
-    hal::display::push();
   }
 
   // Face-down nap: dim immediately, pause animations, accumulate sleep time.

@@ -36,4 +36,8 @@ void setRotation(uint8_t r)  { M5.Display.setRotation(r); }
 void push()                  { }
 bool isLarge()               { return M5.Display.width() >= 320; }
 
+static bool _dirty = true;
+void markDirty()             { _dirty = true; }
+bool consumeDirty()          { bool d = _dirty; _dirty = false; return d; }
+
 }}
