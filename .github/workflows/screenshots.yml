@@ -12,6 +12,8 @@ on:
       - main
       - hal-refactor
       - 'claude/**'
+    tags:
+      - '*'
     paths:
       - 'src/**'
       - 'platformio.ini'
@@ -57,6 +59,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install system deps
+        # libsdl2-dev / xvfb / imagemagick are only consumed by the emulator
+        # build + capture steps below, which themselves only run on tag
+        # pushes. Skip the apt install on branch pushes to save ~30 s.
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -90,12 +96,19 @@ jobs:
         run: python3 -m pip install --upgrade platformio
 
       - name: Build emulator binaries
+        # Emulator + screenshot capture are reference artifacts that don't
+        # change per-commit on a development branch. Only run on tag pushes
+        # (release cuts) and manual dispatch. Branch pushes still build the
+        # device firmware and update the "latest" release.
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         run: pio run -e emulator_stickc -e emulator_core2
 
       - name: Capture screen layouts
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         run: support/native/capture_screens.sh
 
       - name: Sanity-check captures
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         run: |
           n=$(ls docs/emulator/screenshots/*.png | wc -l)
           echo "Found $n PNGs"
