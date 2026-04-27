@@ -5,7 +5,7 @@
 #include <ArduinoJson.h>
 #include "hal/display.h"
 
-extern M5GFX& canvas;
+extern M5Canvas& canvas;
 
 static const char* STATE_NAMES[] = {
   "sleep", "idle", "busy", "attention", "celebrate", "dizzy", "heart"

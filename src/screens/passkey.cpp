@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 // Declared in main.cpp
-extern M5GFX& canvas;
+extern M5Canvas& canvas;
 
 namespace screen { namespace passkey {
 
