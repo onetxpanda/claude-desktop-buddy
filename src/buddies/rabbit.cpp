@@ -3,7 +3,7 @@
 #include <M5Unified.h>
 #include <string.h>
 
-extern M5Canvas& canvas;
+extern M5GFX& canvas;
 
 namespace rabbit {
 

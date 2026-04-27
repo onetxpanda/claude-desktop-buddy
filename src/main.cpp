@@ -15,7 +15,7 @@
 #include "ota.h"
 #include "version.h"
 
-M5Canvas& canvas = hal::display::sprite();
+M5GFX& canvas = hal::display::sprite();
 
 // Advertise as "Claude-XXXX" (last two BT MAC bytes) so multiple sticks
 // in one room are distinguishable in the desktop picker. Name persists in

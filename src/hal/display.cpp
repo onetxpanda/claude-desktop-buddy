@@ -1,18 +1,13 @@
 #include "display.h"
 #include <M5Unified.h>
 
-// Off-screen frame buffer. Drawing during a frame goes here; push() blits
-// it to the LCD in one shot. Constructed with M5.Display as parent so
-// M5Canvas's parent-aware constructor sets _psram=true — the framebuffer
-// lives in PSRAM, where 150 KB at 16bpp is trivially available. M5GFX
-// detects the PSRAM allocation and pushes via CPU-driven SPI (LGFX_Sprite
-// .hpp:424 passes use_dma=false for SPIRAM-backed sprites), so the CPU
-// reads pixels through the cache it just wrote into — no PSRAM/DMA
-// coherency hole, no white/green lines.
-static M5Canvas _spr(&M5.Display);
-
 namespace hal { namespace display {
 
+// No off-screen sprite. Drawing functions in screens/, buddy.cpp, and
+// character.cpp write directly to M5.Display via the `canvas` reference
+// (M5GFX&), which goes through M5GFX's own SPI bus management — exactly
+// the path the M5Stack examples and the M5Unified docs document for the
+// ILI9342C panel.
 void begin() {
   // Core2's ILI9342C ships with rgb_order=false in M5Unified's
   // Panel_M5StackCore2 config, which sends MAD_BGR in MADCTL — telling
@@ -28,17 +23,17 @@ void begin() {
     p->config(cfg);
     M5.Display.setRotation(M5.Display.getRotation());
   }
-
-  _spr.setColorDepth(16);
-  _spr.createSprite(M5.Display.width(), M5.Display.height());
 }
 
-M5GFX&     lcd()             { return M5.Display; }
-M5Canvas&  sprite()          { return _spr; }
+M5GFX&  lcd()                { return M5.Display; }
+M5GFX&  sprite()             { return M5.Display; }
 int  width()                 { return M5.Display.width(); }
 int  height()                { return M5.Display.height(); }
 void setRotation(uint8_t r)  { M5.Display.setRotation(r); }
-void push()                  { _spr.pushSprite(0, 0); }
+// No-op: there's no buffered sprite to push, every drawing call already
+// went straight to the LCD. Keeping the symbol so the ~30 push() callsites
+// in screens/ and main.cpp don't need to be touched.
+void push()                  { }
 bool isLarge()               { return M5.Display.width() >= 320; }
 
 }}

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <cstring>
 
-extern M5Canvas& canvas;
+extern M5GFX& canvas;
 extern TamaState tama;
 
 namespace screen { namespace hud {

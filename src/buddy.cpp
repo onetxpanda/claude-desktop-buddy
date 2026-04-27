@@ -4,7 +4,7 @@
 #include <string.h>
 #include "hal/display.h"
 
-extern M5Canvas& canvas;
+extern M5GFX& canvas;
 
 // Mirrors PersonaState in main.cpp
 enum { B_SLEEP, B_IDLE, B_BUSY, B_ATTENTION, B_CELEBRATE, B_DIZZY, B_HEART };
