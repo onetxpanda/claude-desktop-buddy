@@ -1,0 +1,7 @@
+# Raw STEP downloads from Waveshare; regenerate with `make raw`.
+raw/
+# Tessellated meshes with original (UTF-8) component names; the build step
+# copies them to assets/ with ASCII-safe names that the MJCF references.
+meshes/
+# Rendered previews
+preview.png

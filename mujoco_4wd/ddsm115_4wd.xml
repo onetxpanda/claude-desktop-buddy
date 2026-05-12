@@ -1,0 +1,116 @@
+<?xml version="1.0" ?>
+<mujoco model="ddsm115_4wd">
+  <!-- Generated from Waveshare DDSM115 4WD-A STEP assembly.
+       Source: https://www.waveshare.com/wiki/DDSM115
+       STEP units are mm; converted to meters via mesh scale=0.001.
+       Chassis frame: +X lateral, +Y fore (long axis), +Z up.
+       Wheels rotate about each wheel's body-local Y axis. -->
+
+  <compiler angle="radian" autolimits="true" meshdir="." texturedir="."/>
+  <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81"/>
+
+  <default>
+    <default class="chassis">
+      <geom contype="1" conaffinity="1" group="2" density="500" rgba="0.7 0.72 0.75 1"/>
+    </default>
+    <default class="wheel_visual">
+      <geom contype="0" conaffinity="0" group="2" density="0" rgba="0.2 0.2 0.22 1"/>
+    </default>
+    <default class="wheel_collision">
+      <!-- Cylinder collider for the tire so contact is robust and cheap.
+           Higher friction along the rolling direction. -->
+      <geom contype="1" conaffinity="1" group="3" density="800"
+            friction="1.2 0.01 0.001" rgba="0 0 0 0"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.25 0.27 0.30" rgb2="0.18 0.20 0.22"
+             width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="20 20" reflectance="0.05"/>
+    <mesh name="cnc_link_1" file="assets/cnc_link_1.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wheel_br" file="assets/wheel_br.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="frame_extrusion_1" file="assets/frame_extrusion_1.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="frame_extrusion_2" file="assets/frame_extrusion_2.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wheel_fr" file="assets/wheel_fr.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="cnc_link_2" file="assets/cnc_link_2.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wheel_bl" file="assets/wheel_bl.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="cnc_link_3" file="assets/cnc_link_3.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="frame_extrusion_3" file="assets/frame_extrusion_3.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="wheel_fl" file="assets/wheel_fl.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="cnc_link_4" file="assets/cnc_link_4.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="frame_extrusion_4" file="assets/frame_extrusion_4.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="side_support_1" file="assets/side_support_1.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="side_support_2" file="assets/side_support_2.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="side_support_3" file="assets/side_support_3.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="side_support_4" file="assets/side_support_4.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="top_plate" file="assets/top_plate.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="bottom_plate" file="assets/bottom_plate.stl" scale="0.001 0.001 0.001"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="5 5 0.05" material="grid"
+          friction="1.2 0.005 0.0001"/>
+
+    <body name="base_link" pos="0 0 0.05135">
+      <freejoint name="root"/>
+      <!-- chassis assembly geometry, transforms baked relative to base_link -->
+      <geom type="mesh" mesh="cnc_link_1" pos="0 0 0" quat="1 0 0 0" class="chassis"/>
+      <geom type="mesh" mesh="frame_extrusion_1" pos="0.057 -0.0664315 0.0665685" quat="-0.5 -0.5 -0.5 0.5" class="chassis"/>
+      <geom type="mesh" mesh="frame_extrusion_2" pos="0.067 -0.0764315 0.0665685" quat="0.707107 5.13544e-17 0.707107 -1.48953e-16" class="chassis"/>
+      <geom type="mesh" mesh="cnc_link_2" pos="0 0 0" quat="0 1 0 0" class="chassis"/>
+      <geom type="mesh" mesh="cnc_link_3" pos="0 0 0" quat="0 0 1 0" class="chassis"/>
+      <geom type="mesh" mesh="frame_extrusion_3" pos="-0.057 -0.0664315 0.0665685" quat="-0.5 0.5 -0.5 -0.5" class="chassis"/>
+      <geom type="mesh" mesh="cnc_link_4" pos="0 0 0" quat="0 0 0 1" class="chassis"/>
+      <geom type="mesh" mesh="frame_extrusion_4" pos="0.06701 0.0764305 0.0665685" quat="0.707107 5.13544e-17 0.707107 -1.48953e-16" class="chassis"/>
+      <geom type="mesh" mesh="side_support_1" pos="0 0 0" quat="1 0 0 0" class="chassis"/>
+      <geom type="mesh" mesh="side_support_2" pos="-0.139 1.77636e-17 -8.70415e-16" quat="1 -1.30245e-16 -7.88861e-31 -7.88861e-31" class="chassis"/>
+      <geom type="mesh" mesh="side_support_3" pos="0.13901 -9.1501e-07 8.52651e-16" quat="1.5897e-14 -6.1201e-15 7.78004e-18 1" class="chassis"/>
+      <geom type="mesh" mesh="side_support_4" pos="1e-05 -9.1501e-07 1.77636e-17" quat="1.5897e-14 -6.1201e-15 1.30245e-16 1" class="chassis"/>
+      <geom type="mesh" mesh="top_plate" pos="0 0 0" quat="1 0 0 0" class="chassis"/>
+      <geom type="mesh" mesh="bottom_plate" pos="0 0 -0.043" quat="1 0 0 0" class="chassis"/>
+      <!-- four wheels -->
+      <body name="wheel_br" pos="0.08 -0.1 5.66214e-17" quat="0.270598 0.653281 -0.653281 0.270598">
+        <inertial pos="0 0 0" mass="0.8" diaginertia="0.0009 0.0014 0.0009"/>
+        <joint name="wheel_br_joint" type="hinge" axis="0 1 0" damping="0.05" frictionloss="0.01"/>
+        <geom type="mesh" mesh="wheel_br" class="wheel_visual"/>
+        <geom name="wheel_br_tire" type="cylinder" size="0.0503456 0.0327" quat="0.7071068 0.7071068 0 0" class="wheel_collision"/>
+      </body>
+      <body name="wheel_fr" pos="0.08 0.1 5.66214e-17" quat="0.653281 0.270598 -0.270598 0.653281">
+        <inertial pos="0 0 0" mass="0.8" diaginertia="0.0009 0.0014 0.0009"/>
+        <joint name="wheel_fr_joint" type="hinge" axis="0 1 0" damping="0.05" frictionloss="0.01"/>
+        <geom type="mesh" mesh="wheel_fr" class="wheel_visual"/>
+        <geom name="wheel_fr_tire" type="cylinder" size="0.0503456 0.0327" quat="0.7071068 0.7071068 0 0" class="wheel_collision"/>
+      </body>
+      <body name="wheel_bl" pos="-0.08 -0.1 5.66214e-17" quat="0.653281 -0.270598 -0.270598 -0.653281">
+        <inertial pos="0 0 0" mass="0.8" diaginertia="0.0009 0.0014 0.0009"/>
+        <joint name="wheel_bl_joint" type="hinge" axis="0 1 0" damping="0.05" frictionloss="0.01"/>
+        <geom type="mesh" mesh="wheel_bl" class="wheel_visual"/>
+        <geom name="wheel_bl_tire" type="cylinder" size="0.0503456 0.0327" quat="0.7071068 0.7071068 0 0" class="wheel_collision"/>
+      </body>
+      <body name="wheel_fl" pos="-0.08 0.1 5.66214e-17" quat="-0.270598 0.653281 0.653281 0.270598">
+        <inertial pos="0 0 0" mass="0.8" diaginertia="0.0009 0.0014 0.0009"/>
+        <joint name="wheel_fl_joint" type="hinge" axis="0 1 0" damping="0.05" frictionloss="0.01"/>
+        <geom type="mesh" mesh="wheel_fl" class="wheel_visual"/>
+        <geom name="wheel_fl_tire" type="cylinder" size="0.0503456 0.0327" quat="0.7071068 0.7071068 0 0" class="wheel_collision"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="wheel_fl_motor" joint="wheel_fl_joint" ctrlrange="-3 3" gear="-1"/>
+    <motor name="wheel_fr_motor" joint="wheel_fr_joint" ctrlrange="-3 3" gear="1"/>
+    <motor name="wheel_bl_motor" joint="wheel_bl_joint" ctrlrange="-3 3" gear="-1"/>
+    <motor name="wheel_br_motor" joint="wheel_br_joint" ctrlrange="-3 3" gear="1"/>
+  </actuator>
+
+  <sensor>
+    <jointvel name="wheel_fl_vel" joint="wheel_fl_joint"/>
+    <jointvel name="wheel_fr_vel" joint="wheel_fr_joint"/>
+    <jointvel name="wheel_bl_vel" joint="wheel_bl_joint"/>
+    <jointvel name="wheel_br_vel" joint="wheel_br_joint"/>
+    <framepos name="base_pos" objtype="body" objname="base_link"/>
+    <framequat name="base_quat" objtype="body" objname="base_link"/>
+  </sensor>
+</mujoco>
